@@ -1,0 +1,179 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   Design tokens (Tailwind CSS v4 `@theme`).
+   Every colour used in the UI is declared here once, so the palette can be
+   retuned in a single place.
+   ========================================================================== */
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* Canvas + surfaces */
+  --color-canvas: #070a13;
+  --color-surface-1: #0c101d;
+  --color-surface-2: #111726;
+  --color-surface-3: #171e30;
+
+  /* Text ramp */
+  --color-ink-100: #f5f7ff;
+  --color-ink-200: #d7dcec;
+  --color-ink-300: #a9b2cb;
+  --color-ink-400: #7b86a3;
+  --color-ink-500: #5a6480;
+
+  /* Primary accent — iris */
+  --color-iris-300: #b3b6ff;
+  --color-iris-400: #8f92ff;
+  --color-iris-500: #6f6cff;
+  --color-iris-600: #5a4fe6;
+  --color-iris-700: #4638bb;
+
+  /* Signal colours */
+  --color-mint-400: #34e0b0;
+  --color-mint-500: #12c79a;
+  --color-amber-400: #ffc861;
+  --color-amber-500: #f0a72c;
+  --color-rose-400: #ff7a90;
+  --color-rose-500: #f0506e;
+
+  /* Motion */
+  --animate-rise: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-halo: halo 2.4s ease-in-out infinite;
+  --animate-bar: bar 1.05s ease-in-out infinite;
+
+  --radius-4xl: 1.75rem;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -150% 0;
+  }
+  to {
+    background-position: 250% 0;
+  }
+}
+
+@keyframes halo {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* ==========================================================================
+   Base layer
+   ========================================================================== */
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-image:
+      radial-gradient(
+        1100px 620px at 12% -8%,
+        color-mix(in oklab, var(--color-iris-600) 26%, transparent),
+        transparent 62%
+      ),
+      radial-gradient(
+        900px 520px at 88% 4%,
+        color-mix(in oklab, var(--color-mint-500) 16%, transparent),
+        transparent 60%
+      );
+    background-repeat: no-repeat;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-iris-500) 45%, transparent);
+    color: var(--color-ink-100);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-iris-400);
+    outline-offset: 2px;
+  }
+
+  /* Slim scrollbars that match the canvas. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-surface-3) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-surface-3);
+    border: 2px solid transparent;
+    background-clip: content-box;
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--color-iris-600) 70%, transparent);
+    background-clip: content-box;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+/* ==========================================================================
+   Small reusable utilities
+   ========================================================================== */
+@utility glass-panel {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-surface-2) 92%, transparent),
+      color-mix(in oklab, var(--color-surface-1) 96%, transparent)
+    );
+  border: 1px solid color-mix(in oklab, var(--color-ink-500) 26%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+@utility text-balance-tight {
+  text-wrap: balance;
+}
