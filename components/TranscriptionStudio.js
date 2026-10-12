@@ -28,6 +28,7 @@ import {
   SpinnerIcon,
   WaveIcon,
 } from '@/components/Icons';
+import { useI18n } from '@/components/providers/I18nProvider.js';
 import { useAudioSource } from '@/hooks/useAudioSource';
 import {
   TranscriptionClientError,
@@ -50,6 +51,8 @@ const FALLBACK_ENGINE_LIST = ENGINES.map((engine) => ({
 const DEFAULT_AVAILABILITY = Object.fromEntries(ENGINE_IDS.map((id) => [id, true]));
 
 export default function TranscriptionStudio() {
+  const { t } = useI18n();
+
   /* ------------------------------------------------------------- settings */
   const [engine, setEngine] = useState('auto');
   const [fallback, setFallback] = useState(true);
@@ -301,18 +304,23 @@ export default function TranscriptionStudio() {
     const seconds = elapsedMs / 1000;
     if (status !== 'running') return '';
     if (uploadProgress !== null) {
-      return `Uploading to storage… ${Math.round(uploadProgress * 100)}%`;
+      return t('studio.stage.uploading', { percent: Math.round(uploadProgress * 100) });
     }
-    if (seconds < 0.6) return 'Sending audio to the server proxy…';
-    if (seconds < 2) return `Opening a stream to ${engineLabel(plan.primary)}…`;
+    if (seconds < 0.6) return t('studio.stage.sending');
+    if (seconds < 2) return t('studio.stage.opening', { engine: engineLabel(plan.primary) });
     if (seconds < 12) {
-      return `Transcribing with ${modelLabel(plan.primary, modelFor(plan.primary))}…`;
+      return t('studio.stage.transcribing', {
+        engine: modelLabel(plan.primary, modelFor(plan.primary)),
+      });
     }
     if (plan.fallback && seconds > 25) {
-      return `Still working — ${engineLabel(plan.fallback)} is queued if ${engineLabel(plan.primary)} gives up…`;
+      return t('studio.stage.stillWorking', {
+        fallback: engineLabel(plan.fallback),
+        engine: engineLabel(plan.primary),
+      });
     }
-    return 'Still transcribing — long recordings can take a while…';
-  }, [status, elapsedMs, plan, uploadProgress, modelFor]);
+    return t('studio.stage.long');
+  }, [status, elapsedMs, plan, uploadProgress, modelFor, t]);
 
   const canRun = Boolean(audio) && status !== 'running' && !isRecordingBusy && plan.chain.length > 0;
 
@@ -365,23 +373,23 @@ export default function TranscriptionStudio() {
                   ) : null}
                 </>
               ) : (
-                <span>No audio loaded yet</span>
+                <span>{t('studio.noAudio')}</span>
               )}
             </span>
 
             <span className="inline-flex items-center gap-1.5 rounded-full border border-ink-500/20 bg-surface-1/70 px-3 py-1.5">
               <LayersIcon className="size-3.5 text-mint-400" />
               {plan.chain.length
-                ? plan.chain.map((id) => engineLabel(id)).join('  →  ')
-                : 'No engine available'}
+                ? plan.chain.map((id) => engineLabel(id)).join(' · ')
+                : t('studio.noEngine')}
               {plan.fallback && fallback && fallbackOptionEnabled ? (
-                <span className="text-ink-500">(fallback armed)</span>
+                <span className="text-ink-500">({t('studio.fallbackArmed')})</span>
               ) : null}
             </span>
 
             <span className="inline-flex items-center gap-1.5 rounded-full border border-ink-500/20 bg-surface-1/70 px-3 py-1.5">
               <ShieldIcon className="size-3.5 text-iris-300" />
-              Keys stay server-side
+              {t('studio.keysServerSide')}
             </span>
 
             {uploadProgress !== null ? (
@@ -390,7 +398,7 @@ export default function TranscriptionStudio() {
                 aria-live="polite"
               >
                 <SpinnerIcon className="size-3.5 animate-spin" />
-                Uploading {Math.round(uploadProgress * 100)}%
+                {t('studio.uploading', { percent: Math.round(uploadProgress * 100) })}
               </span>
             ) : null}
           </div>
@@ -402,7 +410,7 @@ export default function TranscriptionStudio() {
                 onClick={cancelTranscription}
                 className="rounded-2xl border border-ink-500/30 px-4 py-3 text-sm font-semibold text-ink-300 transition hover:border-rose-400/40 hover:text-rose-400"
               >
-                Cancel
+                {t('studio.cancel')}
               </button>
             ) : null}
 
@@ -412,22 +420,22 @@ export default function TranscriptionStudio() {
               disabled={!canRun}
               title={
                 canRun
-                  ? 'Transcribe (⌘/Ctrl + Enter)'
+                  ? t('studio.runHint')
                   : isRecordingBusy
-                    ? 'Stop the recording first'
-                    : 'Load or record some audio first'
+                    ? t('studio.runHintRecording')
+                    : t('studio.runHintNoAudio')
               }
               className="group inline-flex min-w-[13rem] items-center justify-center gap-2.5 rounded-2xl bg-iris-500 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_18px_40px_-18px_rgba(111,108,255,0.9)] transition hover:bg-iris-400 active:translate-y-px disabled:cursor-not-allowed disabled:bg-surface-3 disabled:text-ink-500 disabled:shadow-none"
             >
               {status === 'running' ? (
                 <>
                   <SparkIcon className="size-4 animate-pulse" />
-                  Transcribing…
+                  {t('studio.running')}
                 </>
               ) : (
                 <>
                   <BoltIcon className="size-4 transition-transform group-hover:scale-110" />
-                  Transcribe audio
+                  {t('studio.run')}
                 </>
               )}
             </button>
@@ -436,12 +444,17 @@ export default function TranscriptionStudio() {
 
         <p className="mt-4 text-[11px] leading-relaxed text-ink-500">
           {healthChecked && plan.chain.length === 0
-            ? `No engine keys detected — add one of ${engines.map((entry) => entry.keyVar).join(', ')} to .env.local (or your Vercel project) and restart.`
+            ? t('studio.footerNoKeys', {
+                keys: engines.map((entry) => entry.keyVar).join(', '),
+              })
             : [
-                'Audio is sent to this app’s own API route and forwarded straight to the provider.',
+                t('studio.footerInline'),
                 largeUploads.enabled
-                  ? `Files up to ${limits.maxUploadMb} MB stream through the function; larger files (up to ${largeUploads.maxUploadMb} MB) upload directly to Vercel Blob and are deleted the moment transcription finishes.`
-                  : `Maximum upload size: ${limits.maxUploadMb} MB.`,
+                  ? t('studio.footerBlob', {
+                      inline: limits.maxUploadMb,
+                      max: largeUploads.maxUploadMb,
+                    })
+                  : t('studio.footerLimit', { size: limits.maxUploadMb }),
               ].join(' ')}
         </p>
       </section>

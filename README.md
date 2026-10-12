@@ -29,11 +29,19 @@ consumed per engine, plus every figure each provider is willing to publish
 through its API — Deepgram's remaining balance and hours, Speechmatics' batch
 hours, and an explicit "this provider has no usage API" on the two that do not.
 
+It is a **multi-page** app (not a one-pager), **installable** on phones and
+desktops, fully **bilingual (English / Arabic with RTL)** and ships both a
+**light and a dark theme**.
+
 ---
 
 ## Contents
 
 - [Features](#features)
+- [Pages](#pages)
+- [English & Arabic (RTL)](#english--arabic-rtl)
+- [Installing it as an app (PWA)](#installing-it-as-an-app-pwa)
+- [Light & dark themes](#light--dark-themes)
 - [Quick start](#quick-start)
 - [Environment variables](#environment-variables)
 - [How the fallback works](#how-the-fallback-works)
@@ -49,9 +57,20 @@ hours, and an explicit "this provider has no usage API" on the two that do not.
 
 ## Features
 
+**App shell**
+
+- **Separate pages**, each with its own title, description and route:
+  `/` · `/studio` · `/engines` · `/usage` · `/faq` (+ `/offline`).
+- **Bilingual UI** — English and Arabic, with automatic RTL flipping, a cookie
+  that survives restarts, and `Accept-Language` detection on the first visit.
+- **Installable PWA** — web manifest, service worker, maskable icons, an
+  in-app install button, and an offline shell.
+- **Light / dark / system** theme, resolved before the first paint so there is
+  never a flash of the wrong theme, with safe-area insets for notched phones.
+
 **Front end**
 
-- Modern dark studio UI: hero, guided three-step flow, engine comparison, FAQ.
+- Modern studio UI: hero, guided three-step flow, engine comparison, FAQ.
 - **File upload** — drag & drop or browse. MP3, WAV, M4A, MP4, WebM, OGG, Opus,
   FLAC, AAC, AMR, AIFF, 3GP, MOV, MKV.
 - **Live recording** — `MediaRecorder` with start / pause / resume / stop, a
@@ -83,6 +102,78 @@ hours, and an explicit "this provider has no usage API" on the two that do not.
 - `POST /api/blob/upload` — mints short-lived Vercel Blob tokens so files larger
   than the serverless body limit can bypass the function entirely.
 - Automatic timeouts, SSRF-safe URL validation, credential redaction.
+
+---
+
+## Pages
+
+| Route | What it is |
+| --- | --- |
+| `/` | Landing page: the pitch, the numbers, and one diagram of the failover chain. It links out instead of doing everything itself. |
+| `/studio` | The transcriber: audio source, engine picker, run bar, transcript, usage panel. |
+| `/engines` | What each of the four providers is, which key enables it, what its API exposes, and the exact code-by-code hand-off table. |
+| `/usage` | The consumption report, plus an explanation of where every number comes from. |
+| `/faq` | Questions and troubleshooting. |
+| `/offline` | Served by the service worker when a navigation fails with no connection. |
+
+Every page is a server component that reads the locale cookie, so titles,
+descriptions and `<html lang dir>` always agree with the copy.
+
+---
+
+## English & Arabic (RTL)
+
+- `lib/i18n/dictionaries/en.js` is the source of truth; `ar.js` mirrors it
+  **key for key**, and `npm test` fails if the two ever drift — a missing
+  translation can never ship as a blank label or a raw `some.key` on screen.
+- The active locale lives in the `stt_locale` cookie, so the server renders the
+  correct `lang` and `dir` on the first byte. Switching languages calls
+  `router.refresh()`, which re-renders the whole tree — server components
+  included — so a half-translated screen is not possible.
+- With no cookie, the first visit follows the browser's `Accept-Language`.
+- Layout uses logical properties (`ms-`/`me-`/`start-`/`end-`, `rtl:` variants),
+  so the interface mirrors properly rather than merely swapping text.
+- API error codes are translated on the client from the code the server returns,
+  which keeps the route's payload language-neutral.
+
+Adding a locale: drop `lib/i18n/dictionaries/xx.js` next to the others, add it to
+`LOCALES` in `lib/i18n/config.js`, and add it to `RTL_LOCALES` if it reads
+right-to-left. Nothing else needs touching.
+
+---
+
+## Installing it as an app (PWA)
+
+```bash
+npm run icons     # regenerates public/icons/* from the SVG mark
+```
+
+- `app/manifest.js` builds the manifest **per request**: name, short name,
+  description, `lang`, `dir` and `theme_color` all follow the visitor's locale
+  and theme cookies, and it advertises the pages as app shortcuts.
+- `public/sw.js` is a deliberately conservative service worker: navigations are
+  network-first with a cached fallback and `/offline` as the last resort, build
+  output is cache-first (it is content-hashed), and **`/api/*` is never cached** —
+  a replayed transcript would be worse than an honest error.
+- The install button appears when the browser offers a prompt, and on iOS —
+  where no programmatic prompt exists — it shows the Share → Add to Home Screen
+  instructions instead.
+- Installed windows get safe-area insets, `viewport-fit=cover`, and a
+  `display: standalone` layout with no browser chrome.
+
+---
+
+## Light & dark themes
+
+- The `stt_theme` cookie stores `system`, `light` or `dark`.
+- A tiny inline script in `<head>` resolves `system` against
+  `prefers-color-scheme` **before the body paints**, so the first frame is
+  already correct — no flash, no hydration mismatch.
+- The whole palette is one set of CSS variables. The light theme re-declares the
+  same variables under `[data-theme='light']`, so every component — present and
+  future — is themed without a single `dark:` variant.
+- The manifest follows the same cookie, so the installed app window background
+  matches the interface.
 
 ---
 
@@ -127,7 +218,8 @@ npm run test:e2e  # end-to-end tests against mock providers
 
 ## Environment variables
 
-Copy `.env.local.example` → `.env.local`.
+Copy `.env.local.example` → `.env.local`. There are **no environment variables
+for the interface layer**: language and theme are per-visitor cookies.
 
 ### Required (at least one — they are tried in order)
 
@@ -491,9 +583,15 @@ audio extensions, with a hard size ceiling baked into the token.
 
 ```
 app/
-  layout.js                     Fonts, metadata, skip link
-  page.js                       Landing page: hero, studio, comparison, FAQ
-  globals.css                   Tailwind v4 @theme design tokens + keyframes
+  layout.js                     Locale + theme resolution, chrome, PWA metadata
+  page.js                       Landing page (links out to the other pages)
+  studio/page.js                The transcriber
+  engines/page.js               Provider detail + hand-off table
+  usage/page.js                 Consumption page
+  faq/page.js                   Questions & troubleshooting
+  offline/page.js               Offline shell (served by the service worker)
+  manifest.js                   Localised web app manifest
+  globals.css                   Design tokens (dark + light), keyframes, PWA CSS
   icon.svg                      Favicon
   api/
     transcribe/route.js         ⭐ Proxy + smart fallback orchestration
@@ -502,6 +600,14 @@ app/
     usage/route.js              Consumption + remaining-limit report
 
 components/
+  layout/SiteHeader.js          Sticky nav, mobile sheet, switchers, install CTA
+  layout/SiteFooter.js          Shared footer
+  layout/LanguageSwitcher.js    EN ⇄ AR toggle
+  layout/ThemeToggle.js         system → light → dark
+  providers/I18nProvider.js     Translator + locale switching (client)
+  providers/ThemeProvider.js    Theme cookie + pre-paint script
+  InstallApp.js                 Install button/banner + iOS instructions
+  ServiceWorkerRegistrar.js     Registers the worker in production
   TranscriptionStudio.js        Client orchestrator; owns the request lifecycle
   AudioSourceCard.js            Upload / record tabs, drop zone, timer, meters
   EngineControls.js             Engine radio group (auto + N engines), switch, language
@@ -515,6 +621,10 @@ hooks/
   useAudioSource.js             Object URLs, peak decoding, duration recovery
 
 lib/
+  i18n/config.js                Locales, themes, cookies, direction, Accept-Language
+  i18n/index.js                 Dictionaries, flattening, interpolation, translator
+  i18n/server.js                Server helper: locale → translator
+  i18n/dictionaries/{en,ar}.js  The strings (parity enforced by tests)
   engines-meta.js               Engine registry (labels, models, accents, usage mode)
   engines.js                    ⭐ Four provider adapters, error taxonomy
   url-guard.js                  SSRF-safe URL validation
@@ -526,7 +636,17 @@ lib/
   server/rate-limit.js          In-process fixed-window limiter
   server/http.js                Response shapes + credential redaction
 
+public/
+  sw.js                         Service worker (offline shell, never caches /api)
+  icons/                        Generated PNG icons (npm run icons)
+
+scripts/
+  generate-icons.mjs            SVG mark → PWA icon set (sharp)
+
 tests/
+  i18n.test.mjs                 Dictionary parity + every key used in the code
+  theme.test.mjs                Palette parity + the theme cookie contract
+  pwa.test.mjs                  Manifest, icons, and the service worker policy
   transcription.test.mjs        Unit tests (no network)
   e2e.mjs                       End-to-end, incl. emulated Vercel limits
   mock-providers.mjs            Scenario-driven provider mocks
@@ -549,8 +669,8 @@ tests/
 ## Testing
 
 ```bash
-npm test                       # 47 unit tests: parsing, errors, formats, URL guard
-npm run build && npm run test:e2e   # 33 end-to-end scenarios
+npm test                       # 74 unit tests: parsing, errors, i18n parity, theme, PWA
+npm run build && npm run test:e2e   # 39 end-to-end scenarios
 ```
 
 The E2E suite boots the **real production build** against mock providers and
@@ -565,6 +685,12 @@ asserts the contract end to end:
   remote URL (it ingests bytes only);
 - `/api/usage` reports Deepgram's balance, Speechmatics' batch hours, and says
   "no API" for the two providers that publish nothing;
+- every page renders, `/studio` owns the transcriber, and the landing page
+  links to it instead of containing it;
+- an Arabic cookie flips `lang="ar" dir="rtl"` and translates the copy, while
+  `Accept-Language` does the same with no cookie at all;
+- the theme cookie reaches the document, the manifest is localised and
+  installable, and the service worker never caches `/api/*`;
 - validation: missing audio, wrong type, oversize, third-party `audioUrl` (SSRF);
 - rate limiting and `Retry-After`;
 - **an emulated Vercel deployment** — `VERCEL=1`, a proxy that enforces the

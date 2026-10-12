@@ -589,6 +589,72 @@ await scenario('GET /api/usage reports every engine without inventing figures', 
   assert.ok(body.disclosure.providerFigures);
 });
 
+console.log('\nPages, locales and PWA surface');
+await scenario('every page renders, and the transcriber moved to /studio', async () => {
+  for (const route of ['/', '/studio', '/engines', '/usage', '/faq', '/offline']) {
+    const response = await fetch(`${app.base}${route}`);
+    const html = await response.text();
+    assert.equal(response.status, 200, `${route} should render`);
+    assert.match(html, /<html[^>]*lang="en"/, `${route} should declare its language`);
+    assert.match(html, /<html[^>]*dir="ltr"/, `${route} should declare its direction`);
+  }
+
+  // The landing page is a hub now, not the whole app.
+  const home = await (await fetch(`${app.base}/`)).text();
+  assert.match(home, /href="\/studio"/, 'home must link to the studio');
+  assert.match(home, /Turn any audio into/, 'home keeps its hero');
+
+  const studio = await (await fetch(`${app.base}/studio`)).text();
+  assert.match(studio, /Transcribe audio|2 · Pick an engine/, 'studio renders the transcriber');
+});
+
+await scenario('an Arabic cookie flips language and direction', async () => {
+  const response = await fetch(`${app.base}/studio`, {
+    headers: { cookie: 'stt_locale=ar' },
+  });
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /<html[^>]*lang="ar"/);
+  assert.match(html, /<html[^>]*dir="rtl"/);
+  assert.match(html, /المفرّغ/, 'navigation should be translated');
+  assert.match(html, /استوديو تحويل الصوت إلى نص/, 'metadata should be translated');
+});
+
+await scenario('Accept-Language is honoured when no cookie is set', async () => {
+  const response = await fetch(`${app.base}/`, { headers: { 'accept-language': 'ar-EG,ar;q=0.9' } });
+  const html = await response.text();
+  assert.match(html, /<html[^>]*dir="rtl"/);
+});
+
+await scenario('the theme cookie reaches the document', async () => {
+  const html = await (await fetch(`${app.base}/`, { headers: { cookie: 'stt_theme=light' } })).text();
+  assert.match(html, /data-theme-preference="light"/);
+});
+
+await scenario('the web manifest is installable and localised', async () => {
+  const response = await fetch(`${app.base}/manifest.webmanifest`, {
+    headers: { cookie: 'stt_locale=ar; stt_theme=light' },
+  });
+  const manifest = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(manifest.lang, 'ar');
+  assert.equal(manifest.dir, 'rtl');
+  assert.equal(manifest.display, 'standalone');
+  assert.equal(manifest.theme_color, '#f6f7fb');
+  assert.ok(manifest.icons.some((icon) => icon.purpose === 'maskable'));
+  assert.ok(manifest.icons.length >= 3);
+});
+
+await scenario('the service worker is served with the right scope', async () => {
+  const response = await fetch(`${app.base}/sw.js`);
+  const source = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type') ?? '', /javascript/);
+  assert.match(source, /addEventListener\('fetch'/);
+  // Transcription must never be answered from cache.
+  assert.match(source, /url\.pathname\.startsWith\('\/api\/'\)\)\s*return/);
+});
+
 console.log('\nDouble failure handling');
 await scenario('returns a structured error when the whole chain fails', async () => {
   await setModes({

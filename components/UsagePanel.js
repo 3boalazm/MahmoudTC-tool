@@ -20,7 +20,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AlertIcon, BoltIcon, ClockIcon, LayersIcon, SpinnerIcon, WaveIcon } from '@/components/Icons';
+import { useI18n } from '@/components/providers/I18nProvider.js';
 import { copyToClipboard } from '@/lib/client/format';
+
+/** Numeric formatting follows the locale (Western digits in both, by design). */
+const LOCALE_TAG = { en: 'en-US', ar: 'ar-EG' };
+
+/** Shown only when the server did not report its cache window. */
+const serverConfigMinutes = 5;
 
 const ACCENT = {
   iris: { ring: 'border-iris-400/25 bg-iris-500/8', text: 'text-iris-300', bar: 'bg-iris-400' },
@@ -29,39 +36,51 @@ const ACCENT = {
   rose: { ring: 'border-rose-500/25 bg-rose-500/8', text: 'text-rose-400', bar: 'bg-rose-400' },
 };
 
-const formatHours = (hours) => {
-  if (typeof hours !== 'number' || !Number.isFinite(hours)) return null;
-  if (hours === 0) return '0 min';
-  if (hours < 1) return `${Math.round(hours * 60)} min`;
-  return `${hours.toFixed(hours < 10 ? 2 : 1)} h`;
-};
+/** Localised duration helpers: minutes under an hour, hours beyond it. */
+function durationLabels(t) {
+  return {
+    hours: (hours) => {
+      if (typeof hours !== 'number' || !Number.isFinite(hours)) return null;
+      if (hours === 0) return t('usage.zeroMinutes');
+      if (hours < 1) return t('usage.minutes', { count: Math.round(hours * 60) });
+      return t('usage.hours', { count: hours.toFixed(hours < 10 ? 2 : 1) });
+    },
+    minutes: (minutes) => {
+      if (typeof minutes !== 'number' || !Number.isFinite(minutes)) return '—';
+      if (minutes < 1) return t('usage.underMinute');
+      if (minutes < 60) return t('usage.minutes', { count: Math.round(minutes) });
+      return t('usage.hours', { count: (minutes / 60).toFixed(1) });
+    },
+  };
+}
 
-const formatMinutes = (minutes) => {
-  if (typeof minutes !== 'number' || !Number.isFinite(minutes)) return '—';
-  if (minutes < 1) return 'under a minute';
-  if (minutes < 60) return `${Math.round(minutes)} min`;
-  return `${(minutes / 60).toFixed(1)} h`;
-};
-
-const formatMoney = (amount, units) => {
+const formatMoney = (amount, units, locale) => {
   if (typeof amount !== 'number') return null;
-  const formatted = amount.toLocaleString(undefined, {
+  if (units === 'USD') {
+    return new Intl.NumberFormat(LOCALE_TAG[locale] ?? 'en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  }
+  const formatted = amount.toLocaleString(LOCALE_TAG[locale] ?? 'en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  return units === 'USD' ? `$${formatted}` : `${formatted} ${units ?? ''}`.trim();
+  return `${formatted} ${units ?? ''}`.trim();
 };
 
-const formatRelative = (iso) => {
+function relativeTime(t, iso) {
   if (!iso) return null;
   const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86_400)}d ago`;
-};
+  if (seconds < 60) return t('usage.justNow');
+  if (seconds < 3600) return t('usage.minutesAgo', { count: Math.floor(seconds / 60) });
+  if (seconds < 86_400) return t('usage.hoursAgo', { count: Math.floor(seconds / 3600) });
+  return t('usage.daysAgo', { count: Math.floor(seconds / 86_400) });
+}
 
 export default function UsagePanel({ engines = [], enabled = true, engineOrder = [] }) {
+  const { t, locale } = useI18n();
+  const { hours: formatHours, minutes: formatMinutes } = useMemo(() => durationLabels(t), [t]);
   const [report, setReport] = useState(null);
   const [status, setStatus] = useState(enabled ? 'loading' : 'disabled');
   const [error, setError] = useState(null);
@@ -148,37 +167,45 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
     const lines = cards.map((card) => {
       const parts = [
         `${card.label}:`,
-        `  local: ${card.local?.requests ?? 0} requests, ${formatMinutes(card.local?.audioMinutes)} of audio`,
+        `  ${t('usage.thisApp')}: ${card.local?.requests ?? 0} ${t('usage.summary.requests')} · ${formatMinutes(
+          card.local?.audioMinutes,
+        )}`,
       ];
       if (card.provider?.available) {
         if (card.provider.remaining) {
           parts.push(
-            `  remaining: ${formatMoney(card.provider.remaining.amount, card.provider.remaining.units)}`,
+            `  ${t('usage.remaining')}: ${formatMoney(
+              card.provider.remaining.amount,
+              card.provider.remaining.units,
+              locale,
+            )}`,
           );
         }
         if (card.provider.consumption?.hours !== undefined) {
-          parts.push(`  provider usage: ${formatHours(card.provider.consumption.hours)}`);
+          parts.push(`  ${t('usage.used')}: ${formatHours(card.provider.consumption.hours)}`);
         }
       } else if (card.provider?.error) {
-        parts.push(`  provider usage: unavailable — ${card.provider.error}`);
+        parts.push(`  ${t('usage.noApi')} — ${card.provider.error}`);
       }
       return parts.join('\n');
     });
 
     const text = [
-      `Speech to Text Studio — usage report`,
-      `Period: ${report.period?.start} → ${report.period?.end}`,
+      `${t('meta.title')} — ${t('usage.heading')}`,
+      `${t('usage.period')}: ${report.period?.start} → ${report.period?.end}`,
       '',
       ...lines,
       '',
-      `Totals: ${totals?.requests ?? 0} requests, ${totals?.audioMinutes ?? 0} audio minutes, ${totals?.fallbackWins ?? 0} served by fallback`,
+      `${t('usage.summary.requests')}: ${totals?.requests ?? 0} · ${t('usage.summary.fallback')}: ${
+        totals?.fallbackWins ?? 0
+      }`,
     ].join('\n');
 
     if (await copyToClipboard(text)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1_800);
     }
-  }, [cards, report, totals]);
+  }, [cards, report, totals, t, locale, formatHours, formatMinutes]);
 
   if (!enabled || status === 'disabled') return null;
 
@@ -195,12 +222,12 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
           </span>
           <div>
             <h2 id="usage-heading" className="text-base font-semibold text-ink-100">
-              Usage &amp; remaining limits
+              {t('usage.panelHeading')}
             </h2>
             <p className="text-sm text-ink-400">
               {report
-                ? `Consumption for the last ${report.period?.days ?? 30} days, reported per engine.`
-                : 'What this app has consumed, and what each provider reports.'}
+                ? t('usage.panelSubtitle', { days: report.period?.days ?? 30 })
+                : t('usage.panelSubtitleFallback')}
             </p>
           </div>
         </div>
@@ -213,7 +240,7 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
             className="inline-flex items-center gap-1.5 rounded-xl border border-ink-500/25 px-3 py-2 text-xs font-medium text-ink-300 transition hover:border-iris-400/40 hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <SpinnerIcon className={`size-3.5 ${status === 'loading' ? 'animate-spin' : ''}`} />
-            Refresh
+            {t('usage.refresh')}
           </button>
           <button
             type="button"
@@ -221,7 +248,7 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
             disabled={!report}
             className="inline-flex items-center gap-1.5 rounded-xl border border-ink-500/25 px-3 py-2 text-xs font-medium text-ink-300 transition hover:border-iris-400/40 hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {copied ? 'Copied' : 'Copy report'}
+            {copied ? t('usage.copied') : t('usage.copyReport')}
           </button>
         </div>
       </header>
@@ -230,11 +257,11 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
       {totals ? (
         <dl className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           {[
-            { label: 'Requests', value: String(totals.requests ?? 0) },
-            { label: 'Audio processed', value: formatMinutes(totals.audioMinutes) },
-            { label: 'Served by fallback', value: String(totals.fallbackWins ?? 0) },
+            { label: t('usage.summary.requests'), value: String(totals.requests ?? 0) },
+            { label: t('usage.summary.audio'), value: formatMinutes(totals.audioMinutes) },
+            { label: t('usage.summary.fallback'), value: String(totals.fallbackWins ?? 0) },
             {
-              label: 'Engines keyed',
+              label: t('usage.summary.keyed'),
               value: `${engines.filter((engine) => engine.available).length}/${engines.length}`,
             },
           ].map((item) => (
@@ -270,10 +297,7 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
           className="mt-5 flex items-start gap-2.5 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300"
         >
           <AlertIcon className="mt-0.5 size-4 shrink-0 text-rose-400" />
-          <p>
-            {error} Provider figures need a key with management/read scope; consumption is still
-            counted locally.
-          </p>
+          <p>{t('usage.loadingError', { message: error })}</p>
         </div>
       ) : null}
 
@@ -298,7 +322,11 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
                     : 'bg-amber-500/15 text-amber-400'
                 }`}
               >
-                {card.available ? (card.position ? `#${card.position}` : 'keyed') : 'no key'}
+                {card.available
+                  ? card.position
+                    ? `#${card.position}`
+                    : t('common.configured')
+                  : t('common.noKey')}
               </span>
             </header>
 
@@ -308,12 +336,13 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
                 {card.provider.remaining ? (
                   <div className="rounded-xl border border-mint-500/25 bg-mint-500/10 px-3 py-2">
                     <p className="text-[10px] font-medium uppercase tracking-wider text-mint-400">
-                      Remaining
+                      {t('usage.remaining')}
                     </p>
                     <p className="font-mono text-lg font-semibold tabular-nums text-ink-100">
                       {formatMoney(
                         card.provider.remaining.amount,
                         card.provider.remaining.units,
+                        locale,
                       ) ?? '—'}
                     </p>
                   </div>
@@ -322,13 +351,17 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
                 {card.provider.consumption ? (
                   <dl className="grid grid-cols-2 gap-2">
                     <div className="rounded-xl bg-surface-1/70 px-2.5 py-2">
-                      <dt className="text-[10px] uppercase tracking-wider text-ink-500">Used</dt>
+                      <dt className="text-[10px] uppercase tracking-wider text-ink-500">
+                        {t('usage.used')}
+                      </dt>
                       <dd className="font-mono text-sm text-ink-100">
                         {formatHours(card.provider.consumption.hours) ?? '—'}
                       </dd>
                     </div>
                     <div className="rounded-xl bg-surface-1/70 px-2.5 py-2">
-                      <dt className="text-[10px] uppercase tracking-wider text-ink-500">Jobs</dt>
+                      <dt className="text-[10px] uppercase tracking-wider text-ink-500">
+                        {t('usage.jobs')}
+                      </dt>
                       <dd className="font-mono text-sm text-ink-100">
                         {(card.provider.consumption.jobs ?? card.provider.consumption.requests ?? 0).toLocaleString()}
                       </dd>
@@ -344,11 +377,10 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
               <div className="rounded-xl border border-ink-500/15 bg-surface-1/50 px-3 py-2">
                 <p className="flex items-center gap-1.5 text-[11px] font-medium text-ink-400">
                   <AlertIcon className="size-3" />
-                  {card.available ? 'No API for usage' : 'Not configured'}
+                  {card.available ? t('usage.noApi') : t('usage.notConfigured')}
                 </p>
                 <p className="mt-1 text-[10px] leading-relaxed text-ink-500">
-                  {card.provider?.error ??
-                    'This provider does not publish usage or balance data over its API.'}
+                  {card.provider?.error ?? t('usage.noApiBody')}
                 </p>
                 {card.dashboardUrl && card.available ? (
                   <a
@@ -357,7 +389,7 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
                     rel="noreferrer noopener"
                     className="mt-1.5 inline-block text-[10px] font-medium text-iris-300 underline decoration-iris-400/40 underline-offset-2 hover:text-iris-200"
                   >
-                    Open provider dashboard →
+                    {t('usage.openDashboard')}
                   </a>
                 ) : null}
               </div>
@@ -366,32 +398,32 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
             {/* Local counters are always available and always labelled. */}
             <footer className="mt-auto space-y-1.5 border-t border-ink-500/15 pt-3">
               <p className="text-[10px] font-medium uppercase tracking-wider text-ink-500">
-                This app
+                {t('usage.thisApp')}
               </p>
               <p className="flex items-center justify-between text-[11px] text-ink-300">
                 <span className="inline-flex items-center gap-1.5">
                   <BoltIcon className="size-3 text-ink-500" />
-                  Requests
+                  {t('usage.summary.requests')}
                 </span>
                 <span className="font-mono tabular-nums">
                   {(card.local?.requests ?? 0).toLocaleString()}
                   {card.local?.failures ? (
-                    <span className="ml-1 text-rose-400/80">({card.local.failures} failed)</span>
+                    <span className="ms-1 text-rose-400/80">({card.local.failures} failed)</span>
                   ) : null}
                 </span>
               </p>
               <p className="flex items-center justify-between text-[11px] text-ink-300">
                 <span className="inline-flex items-center gap-1.5">
                   <ClockIcon className="size-3 text-ink-500" />
-                  Audio
+                  {t('usage.summary.audio')}
                 </span>
                 <span className="font-mono tabular-nums">
                   {formatMinutes(card.local?.audioMinutes)}
                 </span>
               </p>
               {card.local?.lastUsedAt ? (
-                <p className="text-right text-[10px] text-ink-500">
-                  last used {formatRelative(card.local.lastUsedAt)}
+                <p className="text-end text-[10px] text-ink-500">
+                  {t('usage.lastUsed', { when: relativeTime(t, card.local.lastUsedAt) })}
                 </p>
               ) : null}
             </footer>
@@ -405,11 +437,11 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
           type="button"
           onClick={() => setIsOpen((value) => !value)}
           aria-expanded={isOpen}
-          className="flex w-full items-center justify-between gap-3 text-left text-xs font-medium text-ink-300 transition hover:text-ink-100"
+          className="flex w-full items-center justify-between gap-3 text-start text-xs font-medium text-ink-300 transition hover:text-ink-100"
         >
           <span className="inline-flex items-center gap-2">
             <LayersIcon className="size-3.5 text-ink-500" />
-            Where these numbers come from
+            {t('usage.provenance')}
           </span>
           <span
             aria-hidden="true"
@@ -422,28 +454,24 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
         {isOpen ? (
           <div className="mt-3 space-y-2 text-[11px] leading-relaxed text-ink-400">
             <p>
-              <span className="font-medium text-ink-300">“This app” figures</span> are counted by
-              the server, per engine, since the process started. They reset on every restart or
-              deploy and are per-instance — they are a session view, not billing records.
+              <span className="font-medium text-ink-300">{t('usage.provenanceLocalTitle')}</span>{' '}
+              {t('usage.provenanceLocal')}
             </p>
             <p>
-              <span className="font-medium text-ink-300">Provider figures</span> are read from each
-              vendor’s own API and cached for{' '}
-              {report?.cacheSeconds ? `${Math.round(report.cacheSeconds / 60)} minutes` : 'a few minutes'}.
-              {anyProviderFigure
-                ? ' Deepgram reports a real remaining balance; Speechmatics reports usage but no balance.'
-                : ' None of the configured engines expose usage to the API right now.'}
+              <span className="font-medium text-ink-300">{t('usage.provenanceProviderTitle')}</span>{' '}
+              {t('usage.provenanceProvider', {
+                minutes: report?.cacheSeconds
+                  ? Math.round(report.cacheSeconds / 60)
+                  : serverConfigMinutes,
+              })}
+              {anyProviderFigure ? ` ${t('usage.provenanceProviderSome')}` : ` ${t('usage.provenanceProviderNone')}`}
             </p>
             <p>
-              <span className="font-medium text-ink-300">What is deliberately missing:</span> no
-              engine shows a “remaining minutes” projection, because only Deepgram publishes a
-              balance and no provider publishes your plan’s included quota. Anything else would be
-              a guess.
+              <span className="font-medium text-ink-300">{t('usage.provenanceMissingTitle')}</span>{' '}
+              {t('usage.provenanceMissing')}
             </p>
             <p className="text-ink-500">
-              ⚠️ This panel exposes account-level consumption. Set{' '}
-              <code className="rounded bg-surface-2 px-1 py-0.5 font-mono">ENABLE_USAGE_PANEL=false</code>{' '}
-              to switch it off on a public deployment.
+              {t('usage.provenanceWarning', { var: 'ENABLE_USAGE_PANEL=false' })}
             </p>
           </div>
         ) : null}
@@ -451,7 +479,7 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
 
       {engineOrder?.length ? (
         <p className="mt-3 font-mono text-[10px] text-ink-500">
-          failover chain: {engineOrder.join(' → ')}
+          {t('usage.chainLabel', { chain: engineOrder.join(' → ') })}
         </p>
       ) : null}
     </section>

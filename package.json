@@ -23,7 +23,8 @@
     "lint": "eslint .",
     "test": "node --test tests/*.test.mjs",
     "test:e2e": "node tests/e2e.mjs",
-    "demo": "node tests/mock-servers.mjs"
+    "demo": "node tests/mock-servers.mjs",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.1",
