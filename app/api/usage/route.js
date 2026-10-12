@@ -18,6 +18,7 @@
  */
 
 import { engineAvailability, serverConfig } from '@/lib/server/config';
+import { KEYS_COOKIE, parseCredentialCookie } from '@/lib/server/credentials';
 import { buildUsageReport } from '@/lib/server/usage';
 import { checkRateLimit, clientIdentifier } from '@/lib/server/rate-limit';
 import { errorResponse, jsonResponse } from '@/lib/server/http';
@@ -60,7 +61,11 @@ export async function GET(request) {
     });
   }
 
-  const report = await buildUsageReport({ availability: engineAvailability() });
+  // Usage follows the same credential rules as transcription: a key saved on the
+  // settings page reports *that* account's figures, not the deployment's.
+  const credentials = parseCredentialCookie(request.cookies.get(KEYS_COOKIE)?.value);
+  const availability = engineAvailability(credentials);
+  const report = await buildUsageReport({ availability, credentials });
 
   return jsonResponse({
     ok: true,
@@ -69,6 +74,6 @@ export async function GET(request) {
       requestsPerWindow: serverConfig.rateLimit.max,
       windowSeconds: Math.round(serverConfig.rateLimit.windowMs / 1000),
     },
-    engineOrder: serverConfig.engineOrder.filter((id) => engineAvailability()[id]),
+    engineOrder: serverConfig.engineOrder.filter((id) => availability[id]),
   });
 }

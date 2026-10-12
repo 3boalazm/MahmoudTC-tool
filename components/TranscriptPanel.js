@@ -12,6 +12,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useI18n } from '@/components/providers/I18nProvider.js';
+import { ENGINE_MAP } from '@/lib/engines-meta.js';
+
 import {
   AlertIcon,
   BoltIcon,
@@ -52,6 +55,7 @@ export default function TranscriptPanel({
   onClear,
   onCancel,
 }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef(null);
   const textareaRef = useRef(null);
@@ -94,9 +98,9 @@ export default function TranscriptPanel({
           </span>
           <div>
             <h2 id="transcript-heading" className="text-base font-semibold text-ink-100">
-              3 · Your transcript
+              {t('transcript.heading')}
             </h2>
-            <p className="text-sm text-ink-400">Editable, copyable, and exportable as .txt or .srt.</p>
+            <p className="text-sm text-ink-400">{t('transcript.subheading')}</p>
           </div>
         </div>
 
@@ -108,7 +112,7 @@ export default function TranscriptPanel({
               className="inline-flex items-center gap-2 rounded-xl bg-iris-500 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-iris-400 active:translate-y-px"
             >
               {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
-              {copied ? 'Copied' : 'Copy text'}
+              {copied ? t('transcript.copied') : t('transcript.copy')}
             </button>
             <button
               type="button"
@@ -122,7 +126,7 @@ export default function TranscriptPanel({
               type="button"
               onClick={handleDownloadSrt}
               disabled={!srt}
-              title={srt ? 'Download subtitles' : 'This engine did not return timings'}
+              title={srt ? t('transcript.srtHint') : t('transcript.srtUnavailable')}
               className="inline-flex items-center gap-2 rounded-xl border border-ink-500/25 px-3 py-2 text-xs font-medium text-ink-300 transition hover:border-iris-400/40 hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <DownloadIcon className="size-3.5" />
@@ -134,7 +138,7 @@ export default function TranscriptPanel({
               className="inline-flex items-center gap-2 rounded-xl border border-ink-500/25 px-3 py-2 text-xs font-medium text-ink-300 transition hover:border-rose-400/40 hover:text-rose-400"
             >
               <TrashIcon className="size-3.5" />
-              Clear
+              {t('transcript.clear')}
             </button>
           </div>
         ) : null}
@@ -154,8 +158,10 @@ export default function TranscriptPanel({
               <div className="mb-4 flex items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-400">
                 <BoltIcon className="mt-0.5 size-4 shrink-0" />
                 <p className="leading-relaxed">
-                  {result.warnings?.[0] ||
-                    'The primary engine was unavailable, so the fallback engine produced this transcript.'}
+                  {t('transcript.fallbackNotice')}{' '}
+                  <span className="font-mono uppercase tracking-wide">
+                    {modelLabel(result.engine, result.model)}
+                  </span>
                 </p>
               </div>
             ) : null}
@@ -168,12 +174,13 @@ export default function TranscriptPanel({
                 value={text}
                 onChange={(event) => onTextChange(event.target.value)}
                 spellCheck="true"
-                aria-label="Transcript text"
+                aria-label={t('transcript.ariaLabel')}
                 className="min-h-[18rem] w-full resize-y rounded-2xl border border-ink-500/20 bg-surface-1/80 p-4 text-[15px] leading-7 text-ink-100 shadow-inner transition placeholder:text-ink-500 focus:border-iris-400/60 focus:bg-surface-1 focus:outline-none sm:min-h-[22rem]"
-                placeholder="Your transcript will appear here…"
+                placeholder={t('transcript.placeholder')}
               />
-              <div className="pointer-events-none absolute bottom-3 right-3 rounded-lg bg-surface-3/80 px-2 py-1 text-[10px] font-medium text-ink-400 backdrop-blur">
-                {stats.words.toLocaleString()} words · {stats.characters.toLocaleString()} chars
+              <div className="pointer-events-none absolute bottom-3 end-3 rounded-lg bg-surface-3/80 px-2 py-1 text-[10px] font-medium text-ink-400 backdrop-blur">
+                {stats.words.toLocaleString()} {t('transcript.stats.words')} ·{' '}
+                {stats.characters.toLocaleString()} {t('transcript.stats.characters')}
               </div>
             </div>
           </>
@@ -188,30 +195,44 @@ export default function TranscriptPanel({
 /* -------------------------------------------------------------------------- */
 
 function IdleState() {
+  const { t } = useI18n();
+
   return (
     <div className="rounded-2xl border border-dashed border-ink-500/25 bg-surface-1/40 px-6 py-10 text-center">
       <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-surface-2 text-ink-400 ring-1 ring-ink-500/20">
         <WaveIcon className="size-5" />
       </div>
-      <p className="mt-4 text-sm font-medium text-ink-200">Nothing transcribed yet</p>
+      <p className="mt-4 text-sm font-medium text-ink-200">{t('transcript.emptyTitle')}</p>
       <p className="mx-auto mt-1.5 max-w-md text-xs leading-relaxed text-ink-400">
-        Load an audio file or record something, then press{' '}
-        <span className="font-medium text-ink-300">Transcribe</span>. Nothing is stored — audio is
-        streamed to the provider and discarded.
+        {t('transcript.emptyBody').split(t('transcript.action')).map((part, index, all) => (
+          <span key={index}>
+            {part}
+            {index < all.length - 1 ? (
+              <span className="font-medium text-ink-300">{t('transcript.action')}</span>
+            ) : null}
+          </span>
+        ))}
       </p>
     </div>
   );
 }
 
 function RunningState({ stageText, elapsedMs, onCancel }) {
+  const { t } = useI18n();
+
   return (
     <div className="rounded-2xl border border-iris-400/25 bg-iris-500/8 p-5">
       <div className="flex items-center gap-3">
         <SpinnerIcon className="size-5 animate-spin text-iris-300" />
         <div className="flex-1">
-          <p className="text-sm font-medium text-ink-100">{stageText || 'Transcribing…'}</p>
+          <p className="text-sm font-medium text-ink-100">
+            {stageText || t('transcript.running')}
+          </p>
           <p className="text-[11px] text-ink-400">
-            Elapsed {formatElapsed(elapsedMs)} · longer clips take a little more time
+            <span dir="ltr" className="font-mono">
+              {formatElapsed(elapsedMs)}
+            </span>{' '}
+            · {t('transcript.stats.processed')}
           </p>
         </div>
         <button
@@ -220,7 +241,7 @@ function RunningState({ stageText, elapsedMs, onCancel }) {
           className="inline-flex items-center gap-1.5 rounded-xl border border-ink-500/25 px-3 py-1.5 text-xs font-medium text-ink-300 transition hover:border-rose-400/40 hover:text-rose-400"
         >
           <XIcon className="size-3" />
-          Cancel
+          {t('common.cancel')}
         </button>
       </div>
 
@@ -238,7 +259,15 @@ function RunningState({ stageText, elapsedMs, onCancel }) {
 }
 
 function ErrorState({ error, onRetry }) {
+  const { t } = useI18n();
   const attempts = error?.attempts ?? [];
+
+  /** Prefer the translated message for the code the server returned. */
+  const localized = error?.code ? t(`errors.code.${error.code}`) : null;
+  const message =
+    localized && localized !== `errors.code.${error.code}`
+      ? localized
+      : error?.message || t('transcript.failedBody');
 
   return (
     <div
@@ -248,10 +277,8 @@ function ErrorState({ error, onRetry }) {
       <div className="flex items-start gap-3">
         <AlertIcon className="mt-0.5 size-5 shrink-0 text-rose-400" />
         <div className="flex-1">
-          <p className="font-semibold text-rose-400">Transcription failed</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-rose-300/90">
-            {error?.message || 'Something went wrong while contacting the transcription service.'}
-          </p>
+          <p className="font-semibold text-rose-400">{t('transcript.failedTitle')}</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-rose-300/90">{message}</p>
           {error?.code ? (
             <p className="mt-2 font-mono text-[11px] text-rose-400/80">code: {error.code}</p>
           ) : null}
@@ -261,7 +288,7 @@ function ErrorState({ error, onRetry }) {
           onClick={onRetry}
           className="shrink-0 rounded-xl border border-rose-400/40 px-3 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/15"
         >
-          Try again
+          {t('common.retry')}
         </button>
       </div>
 
@@ -278,7 +305,12 @@ function ErrorState({ error, onRetry }) {
               <span aria-hidden="true">·</span>
               <span className="font-mono">{attempt.code}</span>
               <span aria-hidden="true">·</span>
-              <span>{attempt.reason}</span>
+              <span>
+                {(() => {
+                  const reason = t(`errors.code.${attempt.code}`);
+                  return reason.startsWith('errors.code.') ? attempt.reason : reason;
+                })()}
+              </span>
             </li>
           ))}
         </ul>
@@ -288,31 +320,50 @@ function ErrorState({ error, onRetry }) {
 }
 
 function StatGrid({ stats, result }) {
+  const { t } = useI18n();
+
   const items = [
-    { label: 'Words', value: stats.words.toLocaleString() },
-    { label: 'Characters', value: stats.characters.toLocaleString() },
-    { label: 'Sentences', value: stats.sentences.toLocaleString() },
-    { label: 'Read time', value: stats.readingTime },
+    { label: t('transcript.stats.words'), value: stats.words.toLocaleString() },
+    { label: t('transcript.stats.characters'), value: stats.characters.toLocaleString() },
+    { label: t('transcript.stats.sentences'), value: stats.sentences.toLocaleString() },
+    { label: t('transcript.stats.readTime'), value: stats.readingTime },
   ];
 
   const meta = [
     {
       icon: BoltIcon,
-      label: 'Engine',
+      label: t('transcript.stats.engine'),
       value: modelLabel(result?.engine, result?.model),
-      tone: result?.engine === 'gladia' ? 'mint' : 'iris',
+      // Colour follows the engine registry, so a new engine needs no edit here.
+      tone: ENGINE_MAP[result?.engine]?.accent === 'mint' ? 'mint' : 'iris',
     },
     result?.language
-      ? { icon: GlobeIcon, label: 'Language', value: result.language.toUpperCase() }
+      ? {
+          icon: GlobeIcon,
+          label: t('transcript.stats.language'),
+          value: result.language.toUpperCase(),
+        }
       : null,
     result?.audioSeconds
-      ? { icon: ClockIcon, label: 'Audio', value: formatDuration(result.audioSeconds) }
+      ? {
+          icon: ClockIcon,
+          label: t('transcript.stats.audio'),
+          value: formatDuration(result.audioSeconds),
+        }
       : null,
     result?.elapsedMs
-      ? { icon: SpinnerIcon, label: 'Processed in', value: formatElapsed(result.elapsedMs) }
+      ? {
+          icon: SpinnerIcon,
+          label: t('transcript.stats.processed'),
+          value: formatElapsed(result.elapsedMs),
+        }
       : null,
     formatConfidence(result?.confidence)
-      ? { icon: CheckIcon, label: 'Confidence', value: formatConfidence(result.confidence) }
+      ? {
+          icon: CheckIcon,
+          label: t('transcript.stats.confidence'),
+          value: formatConfidence(result.confidence),
+        }
       : null,
   ].filter(Boolean);
 

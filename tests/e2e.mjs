@@ -296,13 +296,60 @@ function json(response, status, body) {
  * beforehand with `setMode`, because the app intentionally forwards nothing
  * from the client request to the providers.
  */
-async function transcribe(base, { audio = wav, filename = 'clip.wav', type = 'audio/wav', fields = {} } = {}) {
+async function transcribe(
+  base,
+  { audio = wav, filename = 'clip.wav', type = 'audio/wav', fields = {}, cookie } = {},
+) {
   const form = new FormData();
   form.append('audio', new Blob([audio], { type }), filename);
   for (const [key, value] of Object.entries(fields)) form.append(key, value);
 
-  const response = await fetch(`${base}/api/transcribe`, { method: 'POST', body: form });
+  const response = await fetch(`${base}/api/transcribe`, {
+    method: 'POST',
+    body: form,
+    headers: cookie ? { cookie } : undefined,
+  });
   return { status: response.status, body: await response.json().catch(() => null) };
+}
+
+/**
+ * A minimal cookie jar, so a test can play the part of one browser: save a key,
+ * use it, disconnect, and prove the deployment key comes back.
+ */
+function cookieJar() {
+  const jar = new Map();
+  return {
+    absorb(response) {
+      const raw = response.headers.getSetCookie?.() ?? [response.headers.get('set-cookie') ?? ''];
+      for (const entry of raw) {
+        if (!entry) continue;
+        const [pair] = entry.split(';');
+        const index = pair.indexOf('=');
+        if (index < 0) continue;
+        const name = pair.slice(0, index).trim();
+        const value = pair.slice(index + 1).trim();
+        if (value === '') jar.delete(name);
+        else jar.set(name, value);
+      }
+      return this;
+    },
+    header: () => [...jar.entries()].map(([name, value]) => `${name}=${value}`).join('; '),
+    get: (name) => jar.get(name) ?? null,
+    size: () => jar.size,
+  };
+}
+
+/** POST/DELETE helpers for the credentials endpoint. */
+async function credentials(base, { method = 'POST', body, cookie, query = '' } = {}) {
+  const response = await fetch(`${base}/api/credentials${query}`, {
+    method,
+    headers: {
+      ...(body ? { 'content-type': 'application/json' } : {}),
+      ...(cookie ? { cookie } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return { status: response.status, headers: response.headers, body: await response.json().catch(() => null) };
 }
 
 /** Track every spawned app so an unexpected exit still cleans up. */
@@ -587,6 +634,301 @@ await scenario('GET /api/usage reports every engine without inventing figures', 
   assert.equal(body.totals.requests >= 5, true);
   assert.ok(body.disclosure.localCounters);
   assert.ok(body.disclosure.providerFigures);
+});
+
+console.log('\nPages, locales and PWA surface');
+await scenario('every page renders, and the transcriber moved to /studio', async () => {
+  for (const route of ['/', '/studio', '/engines', '/usage', '/faq', '/offline', '/settings']) {
+    const response = await fetch(`${app.base}${route}`);
+    const html = await response.text();
+    assert.equal(response.status, 200, `${route} should render`);
+    assert.match(html, /<html[^>]*lang="en"/, `${route} should declare its language`);
+    assert.match(html, /<html[^>]*dir="ltr"/, `${route} should declare its direction`);
+  }
+
+  // The landing page is a hub now, not the whole app.
+  const home = await (await fetch(`${app.base}/`)).text();
+  assert.match(home, /href="\/studio"/, 'home must link to the studio');
+  assert.match(home, /Turn any audio into/, 'home keeps its hero');
+
+  const studio = await (await fetch(`${app.base}/studio`)).text();
+  assert.match(studio, /Transcribe audio|2 · Pick an engine/, 'studio renders the transcriber');
+});
+
+await scenario('an Arabic cookie flips language and direction', async () => {
+  const response = await fetch(`${app.base}/studio`, {
+    headers: { cookie: 'stt_locale=ar' },
+  });
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /<html[^>]*lang="ar"/);
+  assert.match(html, /<html[^>]*dir="rtl"/);
+  assert.match(html, /المفرّغ/, 'navigation should be translated');
+  assert.match(html, /استوديو تحويل الصوت إلى نص/, 'metadata should be translated');
+});
+
+await scenario('Accept-Language is honoured when no cookie is set', async () => {
+  const response = await fetch(`${app.base}/`, { headers: { 'accept-language': 'ar-EG,ar;q=0.9' } });
+  const html = await response.text();
+  assert.match(html, /<html[^>]*dir="rtl"/);
+});
+
+await scenario('the theme cookie reaches the document', async () => {
+  const html = await (await fetch(`${app.base}/`, { headers: { cookie: 'stt_theme=light' } })).text();
+  assert.match(html, /data-theme-preference="light"/);
+});
+
+await scenario('the web manifest is installable and localised', async () => {
+  const response = await fetch(`${app.base}/manifest.webmanifest`, {
+    headers: { cookie: 'stt_locale=ar; stt_theme=light' },
+  });
+  const manifest = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(manifest.lang, 'ar');
+  assert.equal(manifest.dir, 'rtl');
+  assert.equal(manifest.display, 'standalone');
+  assert.equal(manifest.theme_color, '#f6f7fb');
+  assert.ok(manifest.icons.some((icon) => icon.purpose === 'maskable'));
+  assert.ok(manifest.icons.length >= 3);
+});
+
+await scenario('the service worker is served with the right scope', async () => {
+  const response = await fetch(`${app.base}/sw.js`);
+  const source = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type') ?? '', /javascript/);
+  assert.match(source, /addEventListener\('fetch'/);
+  // Transcription must never be answered from cache.
+  assert.match(source, /url\.pathname\.startsWith\('\/api\/'\)\)\s*return/);
+});
+
+console.log('\nSettings: bring your own keys');
+
+const browser = cookieJar();
+
+await scenario('the deployment’s keys are reported as connected — and never revealed', async () => {
+  const response = await fetch(`${app.base}/api/credentials`);
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.connected, 4);
+  assert.ok(
+    body.engines.every((engine) => engine.source === 'environment'),
+    'the e2e app configures all four engines through env vars',
+  );
+  assert.ok(
+    body.engines.every((engine) => engine.masked === '••••••••'),
+    'an env key must not be partially revealed',
+  );
+  assert.deepEqual(body.chain, ['deepgram', 'gladia', 'assemblyai', 'speechmatics']);
+
+  const serialised = JSON.stringify(body);
+  for (const secret of ['test-deepgram-key', 'test-gladia-key', 'test-assemblyai-key', 'test-speechmatics-key']) {
+    assert.ok(!serialised.includes(secret), `${secret} leaked into the credential report`);
+  }
+
+  // The studio learns where to send people who have no key.
+  const health = await (await fetch(`${app.base}/api/health`)).json();
+  assert.equal(health.credentials.manageUrl, '/settings');
+  assert.equal(health.credentials.fromSettings, false);
+});
+
+await scenario('a key saved in settings is the one the provider receives', async () => {
+  await setModes({ deepgram: 'ok', gladia: 'ok' });
+
+  const saved = await credentials(app.base, {
+    body: { engine: 'deepgram', key: 'typed-deepgram-e2e-9f2a' },
+  });
+  browser.absorb({ headers: saved.headers });
+
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.result.ok, true);
+  assert.equal(saved.body.result.stored, true);
+  assert.equal(
+    saved.body.engines.find((engine) => engine.id === 'deepgram').source,
+    'settings',
+  );
+  assert.ok(
+    !JSON.stringify(saved.body).includes('typed-deepgram-e2e-9f2a'),
+    'the key must never be echoed back',
+  );
+
+  const cookie = saved.headers.getSetCookie().join('\n');
+  assert.match(cookie, /stt_keys=/);
+  assert.match(cookie, /HttpOnly/i, 'page scripts must not be able to read a key back');
+  assert.match(cookie, /SameSite=lax/i);
+  assert.match(cookie, /Path=\//);
+
+  // With the cookie, the visitor's own key reaches the provider…
+  const mine = await transcribe(app.base, {
+    cookie: browser.header(),
+    fields: { engine: 'deepgram', fallback: 'false' },
+  });
+  assert.equal(mine.status, 200);
+  assert.equal(deepgramMock.lastAuth, 'Token typed-deepgram-e2e-9f2a');
+
+  // …and everyone else still uses the deployment's.
+  const anonymous = await transcribe(app.base, {
+    fields: { engine: 'deepgram', fallback: 'false' },
+  });
+  assert.equal(anonymous.status, 200);
+  assert.equal(deepgramMock.lastAuth, 'Token test-deepgram-key');
+});
+
+await scenario('disconnect drops the key and the deployment key takes over again', async () => {
+  const removed = await credentials(app.base, {
+    method: 'DELETE',
+    cookie: browser.header(),
+    query: '?engine=deepgram',
+  });
+  browser.absorb({ headers: removed.headers });
+
+  assert.equal(removed.status, 200);
+  assert.equal(removed.body.result.code, 'DISCONNECTED');
+  assert.equal(removed.body.engines.find((engine) => engine.id === 'deepgram').source, 'environment');
+  assert.ok(!removed.body.engines.find((engine) => engine.id === 'deepgram').fromSettings);
+
+  const after = await transcribe(app.base, {
+    cookie: browser.header(),
+    fields: { engine: 'deepgram', fallback: 'false' },
+  });
+  assert.equal(after.status, 200);
+  assert.equal(deepgramMock.lastAuth, 'Token test-deepgram-key');
+});
+
+await scenario('a rejected key is reported, and is not allowed to shadow a working one', async () => {
+  await setModes({ deepgram: 'auth' });
+  const before = deepgramMock.requests;
+
+  const response = await credentials(app.base, {
+    body: { engine: 'deepgram', key: 'definitely-not-a-real-key' },
+  });
+
+  assert.equal(response.status, 200, 'a rejected key is not a failed request');
+  assert.ok(deepgramMock.requests > before, 'the key was probed against the provider');
+  assert.equal(response.body.result.ok, false);
+  assert.equal(response.body.result.code, 'REJECTED');
+  assert.equal(response.body.result.status, 401);
+  assert.equal(response.body.result.stored, false);
+  assert.equal(
+    response.body.engines.find((engine) => engine.id === 'deepgram').source,
+    'environment',
+    'the deployment key must still be in force',
+  );
+
+  await setModes({ deepgram: 'ok' });
+});
+
+await scenario('an unusable key is refused before any provider is called', async () => {
+  const before = deepgramMock.requests;
+  const response = await credentials(app.base, {
+    body: { engine: 'deepgram', key: 'Bearer not-a-key' },
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.detail, 'prefix');
+  assert.equal(response.headers.get('x-key-rejected'), 'prefix');
+  assert.equal(deepgramMock.requests, before, 'no provider round trip for an obvious mistake');
+
+  const empty = await credentials(app.base, { body: { engine: 'deepgram', key: '  ' } });
+  assert.equal(empty.status, 400);
+  assert.equal(empty.body.error.detail, 'empty');
+
+  const unknown = await credentials(app.base, { body: { engine: 'whisper', key: 'a-fine-looking-key' } });
+  assert.equal(unknown.status, 400);
+  assert.match(unknown.body.error.message, /Unknown engine/i);
+});
+
+await scenario('another site cannot read or change your credentials', async () => {
+  for (const method of ['GET', 'POST', 'DELETE']) {
+    const response = await fetch(`${app.base}/api/credentials`, {
+      method,
+      headers: {
+        'sec-fetch-site': 'cross-site',
+        ...(method === 'POST' ? { 'content-type': 'application/json' } : {}),
+      },
+      body: method === 'POST' ? JSON.stringify({ engine: 'deepgram', key: 'stolen-key-12345' }) : undefined,
+    });
+    assert.equal(response.status, 403, `${method} must be refused for cross-site callers`);
+    assert.equal((await response.json()).error.code, 'AUTH');
+  }
+});
+
+await scenario('one browser can disable an engine without changing the deployment', async () => {
+  const picky = cookieJar();
+
+  const disabled = await credentials(app.base, {
+    body: { engine: 'gladia', action: 'disable' },
+  });
+  picky.absorb({ headers: disabled.headers });
+
+  assert.equal(disabled.body.result.code, 'DISABLED');
+  assert.equal(disabled.body.engines.find((engine) => engine.id === 'gladia').source, 'disabled');
+
+  const mine = await (await fetch(`${app.base}/api/health`, { headers: { cookie: picky.header() } })).json();
+  assert.equal(mine.engines.find((engine) => engine.id === 'gladia').available, false);
+  assert.equal(mine.engines.find((engine) => engine.id === 'deepgram').available, true);
+  assert.deepEqual(mine.engineOrder, ['deepgram', 'assemblyai', 'speechmatics']);
+
+  const anonymous = await (await fetch(`${app.base}/api/health`)).json();
+  assert.equal(
+    anonymous.engines.find((engine) => engine.id === 'gladia').available,
+    true,
+    'other visitors are unaffected',
+  );
+
+  // …and a pinned request for the disabled engine is refused rather than silently swapped.
+  const pinned = await transcribe(app.base, {
+    cookie: picky.header(),
+    fields: { engine: 'gladia', fallback: 'false' },
+  });
+  assert.equal(pinned.status, 503);
+  assert.equal(pinned.body.error.code, 'MISSING_KEY');
+
+  const enabled = await credentials(app.base, {
+    body: { engine: 'gladia', action: 'enable' },
+    cookie: picky.header(),
+  });
+  assert.equal(enabled.body.result.code, 'ENABLED');
+  assert.equal(enabled.body.engines.find((engine) => engine.id === 'gladia').source, 'environment');
+});
+
+await scenario('disconnect all empties the jar in one request', async () => {
+  const jar = cookieJar();
+  const first = await credentials(app.base, {
+    body: { engine: 'assemblyai', key: 'aai-typed-key-1234' },
+  });
+  jar.absorb({ headers: first.headers });
+  const second = await credentials(app.base, {
+    body: { engine: 'speechmatics', key: 'sm-typed-key-1234' },
+    cookie: jar.header(),
+  });
+  jar.absorb({ headers: second.headers });
+
+  assert.equal(second.body.connected, 4);
+  assert.equal(second.body.engines.filter((engine) => engine.source === 'settings').length, 2);
+
+  const cleared = await credentials(app.base, { method: 'DELETE', cookie: jar.header(), query: '?all=1' });
+  assert.equal(cleared.body.result.code, 'DISCONNECTED_ALL');
+  assert.equal(cleared.body.result.removed, 2);
+  assert.ok(
+    cleared.body.engines.every((engine) => engine.source === 'environment'),
+    'every engine falls back to the deployment key',
+  );
+});
+
+await scenario('the settings page is server-rendered with the real connection state', async () => {
+  const html = await (await fetch(`${app.base}/settings`)).text();
+
+  assert.match(html, /Deployment key/, 'SOURCE_STYLE chips are rendered on the server');
+  assert.match(html, /••••••••/);
+  assert.ok(!html.includes('test-deepgram-key'), 'no env key may appear in the markup');
+  assert.match(html, /stt_keys/, 'the storage explanation names the cookie');
+
+  const arabic = await (
+    await fetch(`${app.base}/settings`, { headers: { cookie: 'stt_locale=ar' } })
+  ).text();
+  assert.match(arabic, /مفتاح النشر/, 'the panel is translated too');
 });
 
 console.log('\nDouble failure handling');

@@ -5,7 +5,8 @@
  * ---------------------------------------------------------------------------
  * MediaRecorder wrapper exposed as a React hook.
  *
- * Handles: permission errors, codec negotiation across browsers, a live level
+ * Handles: permission errors (exposed as codes for translation), codec
+ * negotiation across browsers, a live level
  * meter (Web Audio `AnalyserNode`), a wall-clock timer, pause/resume, and full
  * teardown of the media tracks on unmount so the microphone indicator always
  * goes away.
@@ -54,20 +55,21 @@ const extensionForMime = (mimeType = '') => {
   return 'webm';
 };
 
-const HUMAN_ERRORS = {
-  NotAllowedError:
-    'Microphone permission was denied. Allow access in your browser settings and try again.',
-  PermissionDeniedError:
-    'Microphone permission was denied. Allow access in your browser settings and try again.',
-  NotFoundError: 'No microphone was found on this device.',
-  DevicesNotFoundError: 'No microphone was found on this device.',
-  NotReadableError:
-    'The microphone is already in use by another application. Close it and try again.',
-  TrackStartError:
-    'The microphone is already in use by another application. Close it and try again.',
-  OverconstrainedError: 'The selected microphone does not support the requested settings.',
-  SecurityError: 'Microphone access requires a secure (https) connection.',
-  AbortError: 'Microphone access was interrupted. Please try again.',
+/**
+ * MediaRecorder failures are mapped to **codes**, not sentences: the UI
+ * translates them (see `source.rec.*` in the dictionaries), which is what makes
+ * a microphone error readable in Arabic too.
+ */
+const ERROR_CODES_BY_NAME = {
+  NotAllowedError: 'PERMISSION_DENIED',
+  PermissionDeniedError: 'PERMISSION_DENIED',
+  NotFoundError: 'NO_MICROPHONE',
+  DevicesNotFoundError: 'NO_MICROPHONE',
+  NotReadableError: 'MIC_IN_USE',
+  TrackStartError: 'MIC_IN_USE',
+  OverconstrainedError: 'OVERCONSTRAINED',
+  SecurityError: 'INSECURE',
+  AbortError: 'INTERRUPTED',
 };
 
 const BAR_COUNT = 28;
@@ -194,7 +196,7 @@ export function useRecorder() {
   /* ---------------------------------------------------------------- actions */
   const start = useCallback(async () => {
     if (!isSupported) {
-      setError('This browser does not support in-browser recording. Try uploading a file instead.');
+      setError('UNSUPPORTED');
       return null;
     }
 
@@ -216,11 +218,7 @@ export function useRecorder() {
         },
       });
     } catch (mediaError) {
-      const message =
-        HUMAN_ERRORS[mediaError?.name] ||
-        mediaError?.message ||
-        'The microphone could not be started.';
-      setError(message);
+      setError(ERROR_CODES_BY_NAME[mediaError?.name] || 'START_FAILED');
       setStatus('idle');
       return null;
     }
@@ -235,11 +233,8 @@ export function useRecorder() {
         : new MediaRecorder(stream);
     } catch (recorderError) {
       teardown();
-      setError(
-        `Recording could not be initialised in this browser${
-          recorderError?.message ? ` (${recorderError.message})` : ''
-        }.`,
-      );
+      console.warn('[recorder] could not initialise', recorderError);
+      setError('INIT_FAILED');
       setStatus('idle');
       return null;
     }
@@ -252,7 +247,9 @@ export function useRecorder() {
     };
 
     recorder.onerror = (event) => {
-      setError(event?.error?.message || 'The recorder reported an unexpected error.');
+      // Keep the raw detail in the console; the UI shows a translated code.
+      console.warn('[recorder]', event?.error);
+      setError('RECORDER_ERROR');
       teardown();
       setStatus('idle');
     };
@@ -275,7 +272,7 @@ export function useRecorder() {
           durationSeconds: Math.max(0.4, recordedMs / 1000),
         });
       } else {
-        setError('The recording came out empty. Check your microphone input level.');
+        setError('EMPTY_RECORDING');
       }
 
       teardown();

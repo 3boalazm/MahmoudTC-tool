@@ -3,7 +3,9 @@
 /* ==========================================================================
    Design tokens (Tailwind CSS v4 `@theme`).
    Every colour used in the UI is declared here once, so the palette can be
-   retuned in a single place.
+   retuned in a single place. The values below are the **dark** theme; the
+   light theme re-declares the same variables further down, and every utility
+   in the app reads them, so both themes stay in sync automatically.
    ========================================================================== */
 @theme {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
@@ -98,7 +100,18 @@
 
   html {
     -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
+    /* Keeps the standalone (installed) window clear of the notch and the
+       home indicator on iOS. */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0
+      env(safe-area-inset-left);
+  }
+
+  /* Arabic and other RTL locales read better with a slightly tighter leading
+     and a font stack that prefers a native Arabic face. */
+  html[dir='rtl'] body {
+    letter-spacing: 0;
   }
 
   body {
@@ -176,4 +189,93 @@
 
 @utility text-balance-tight {
   text-wrap: balance;
+}
+
+/* ==========================================================================
+   Light theme
+   --------------------------------------------------------------------------
+   Unlayered on purpose: these declarations must win over the `:root` values
+   Tailwind emits into the `theme` layer. Because every utility in the app
+   references these variables (`bg-canvas`, `text-ink-300`, …), overriding them
+   here re-themes the entire interface — including components written later —
+   with no per-component work.
+   ========================================================================== */
+
+[data-theme='light'] {
+  --color-canvas: #f6f7fb;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #f1f3fa;
+  --color-surface-3: #e5e8f4;
+
+  --color-ink-100: #0f1424;
+  --color-ink-200: #2a3350;
+  --color-ink-300: #495471;
+  --color-ink-400: #697491;
+  --color-ink-500: #8b94ac;
+
+  /* The accent ramp is darkened so text and thin borders keep their contrast
+     against a white surface. */
+  --color-iris-300: #564fe0;
+  --color-iris-400: #5b52ea;
+  --color-iris-500: #5b48e8;
+  --color-iris-600: #4a3ad4;
+  --color-iris-700: #3728a4;
+
+  --color-mint-400: #079a7a;
+  --color-mint-500: #067f65;
+  --color-amber-400: #b3761a;
+  --color-amber-500: #96590d;
+  --color-rose-400: #d33a5c;
+  --color-rose-500: #b81f44;
+
+  color-scheme: light;
+}
+
+[data-theme='light'] body {
+  background-image:
+    radial-gradient(
+      1100px 620px at 12% -8%,
+      color-mix(in oklab, var(--color-iris-400) 14%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      900px 520px at 88% 4%,
+      color-mix(in oklab, var(--color-mint-400) 12%, transparent),
+      transparent 60%
+    );
+}
+
+/* Printed or high-contrast-assisted users still get readable text. */
+[data-theme='light'] ::selection {
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body {
+    transition:
+      background-color 240ms ease,
+      color 240ms ease;
+  }
+}
+
+/* ==========================================================================
+   Progressive web app
+   ========================================================================== */
+
+@utility safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/* A little extra breathing room when launched from the home screen. */
+@media (display-mode: standalone) {
+  html {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Native-app feel: no text selection on chrome, no tap flash on buttons. */
+@media (display-mode: standalone) {
+  .no-select-standalone {
+    user-select: none;
+  }
 }

@@ -13,30 +13,56 @@
 import { useMemo } from 'react';
 
 import { BoltIcon, GlobeIcon, LayersIcon, ShieldIcon } from '@/components/Icons';
+import { useI18n } from '@/components/providers/I18nProvider.js';
 
 export const LANGUAGES = [
-  { value: '', label: 'Auto-detect' },
-  { value: 'en', label: 'English' },
-  { value: 'ar', label: 'Arabic' },
-  { value: 'zh', label: 'Mandarin Chinese' },
-  { value: 'nl', label: 'Dutch' },
-  { value: 'fr', label: 'French' },
-  { value: 'de', label: 'German' },
-  { value: 'hi', label: 'Hindi' },
-  { value: 'id', label: 'Indonesian' },
-  { value: 'it', label: 'Italian' },
-  { value: 'ja', label: 'Japanese' },
-  { value: 'ko', label: 'Korean' },
-  { value: 'pl', label: 'Polish' },
-  { value: 'pt', label: 'Portuguese' },
-  { value: 'ru', label: 'Russian' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'sv', label: 'Swedish' },
-  { value: 'th', label: 'Thai' },
-  { value: 'tr', label: 'Turkish' },
-  { value: 'uk', label: 'Ukrainian' },
-  { value: 'vi', label: 'Vietnamese' },
+  '',
+  'en',
+  'ar',
+  'zh',
+  'nl',
+  'fr',
+  'de',
+  'hi',
+  'id',
+  'it',
+  'ja',
+  'ko',
+  'pl',
+  'pt',
+  'ru',
+  'es',
+  'sv',
+  'th',
+  'tr',
+  'uk',
+  'vi',
 ];
+
+/**
+ * Language names come from the platform (`Intl.DisplayNames`), so the dropdown
+ * reads "العربية · Arabic" correctly in either interface language without a
+ * 20-row table per locale. UK English/older engines fall back to the raw code.
+ */
+function useLanguageNames(locale) {
+  return useMemo(() => {
+    let display = null;
+    try {
+      display = new Intl.DisplayNames([locale], { type: 'language' });
+    } catch {
+      display = null;
+    }
+    return (code) => {
+      if (!code) return null;
+      try {
+        return display?.of(code) ?? code;
+      } catch {
+        return code;
+      }
+    };
+  }, [locale]);
+}
+
 
 /** Dot + text colour per engine accent. */
 const ACCENT = {
@@ -57,16 +83,19 @@ export default function EngineControls({
   fallbackOptionEnabled = true,
   disabled = false,
 }) {
+  const { t, locale } = useI18n();
+  const languageName = useLanguageNames(locale);
+
   /** "Auto" plus every engine the deployment knows about. */
   const options = useMemo(
     () => [
       {
         id: 'auto',
-        label: 'Automatic',
-        blurb: 'Failover chain',
+        label: t('engines.automatic'),
+        blurb: t('engines.autoBlurb'),
         available: engines.some((entry) => entry.available),
         accent: 'iris',
-        badge: 'Recommended',
+        badge: t('common.recommended'),
       },
       ...engines.map((entry) => ({
         id: entry.id,
@@ -79,7 +108,7 @@ export default function EngineControls({
         position: entry.position,
       })),
     ],
-    [engines],
+    [engines, t],
   );
 
   const handleKeyDown = (event) => {
@@ -109,19 +138,19 @@ export default function EngineControls({
           </span>
           <div>
             <h2 id="engine-heading" className="text-base font-semibold text-ink-100">
-              2 · Pick an engine
+              {t('engines.pickHeading')}
             </h2>
             <p className="text-sm text-ink-400">
               {availableCount > 1
-                ? `${availableCount} engines configured — failures roll down the chain automatically.`
-                : 'Automatic fallback keeps working when a provider hits a limit.'}
+                ? t('engines.keyedHint')
+                : t('engines.noKeyHint')}
             </p>
           </div>
         </div>
 
         {engines.length ? (
           <span className="rounded-full border border-ink-500/20 bg-surface-1/70 px-3 py-1.5 font-mono text-[11px] text-ink-400">
-            {availableCount}/{engines.length} keyed
+            {t('engines.keyed', { available: availableCount, total: engines.length })}
           </span>
         ) : null}
       </header>
@@ -149,9 +178,12 @@ export default function EngineControls({
               title={
                 available
                   ? `${option.label}${option.model ? ` · ${option.model}` : ''}`
-                  : `${option.label} is not configured — set ${option.keyVar ?? 'its API key'} to enable it`
+                  : t('engines.missingKey', {
+                      engine: option.label,
+                      key: option.keyVar ?? 'API key',
+                    })
               }
-              className={`group relative flex flex-col gap-1.5 rounded-2xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
+              className={`group relative flex flex-col gap-1.5 rounded-2xl border p-3 text-start transition disabled:cursor-not-allowed disabled:opacity-45 ${
                 selected
                   ? 'border-iris-400/60 bg-iris-500/12 shadow-[0_0_0_1px_rgba(143,146,255,0.25)_inset]'
                   : 'border-ink-500/20 bg-surface-1/60 hover:border-iris-400/35 hover:bg-surface-2/60'
@@ -175,7 +207,7 @@ export default function EngineControls({
                 ) : option.position ? (
                   <span
                     className="shrink-0 font-mono text-[10px] text-ink-500"
-                    title={`Position ${option.position} in the failover chain`}
+                    title={t('engines.chainPosition', { position: option.position })}
                   >
                     #{option.position}
                   </span>
@@ -183,7 +215,7 @@ export default function EngineControls({
               </span>
 
               <span className={`truncate text-[11px] ${available ? 'text-ink-400' : 'text-amber-400/80'}`}>
-                {available ? option.blurb : 'No API key'}
+                {available ? option.blurb : t('common.noKey')}
               </span>
 
               {option.badge && selected ? (
@@ -204,7 +236,7 @@ export default function EngineControls({
             checked={fallback && fallbackOptionEnabled}
             disabled={disabled || !fallbackOptionEnabled}
             onChange={onFallbackChange}
-            label="Automatic fallback"
+            label={t('engines.fallbackLabel')}
             labelledBy="fallback-label"
           />
           <div className="min-w-0">
@@ -214,12 +246,10 @@ export default function EngineControls({
                 disabled || !fallbackOptionEnabled ? 'opacity-60' : ''
               }`}
             >
-              Automatic fallback
+              {t('engines.fallbackLabel')}
             </p>
             <p className="mt-0.5 text-[11px] leading-relaxed text-ink-400">
-              {fallbackOptionEnabled
-                ? 'On 429 rate limits, 402 out-of-credit, auth errors and 5xx failures, the next engine in the chain picks up the request.'
-                : 'Locked on by the deployment (ALLOW_CLIENT_FALLBACK_OPTION=false).'}
+              {fallbackOptionEnabled ? t('engines.fallbackOn') : t('engines.fallbackLocked')}
             </p>
           </div>
         </div>
@@ -231,10 +261,10 @@ export default function EngineControls({
             className="flex items-center gap-2 text-sm font-medium text-ink-100"
           >
             <GlobeIcon className="size-4 text-ink-400" />
-            Spoken language
+            {t('engines.languageLabel')}
           </label>
           <p className="mt-0.5 text-[11px] leading-relaxed text-ink-400">
-            Leave on auto-detect unless you know the language — a hint improves accuracy.
+            {t('engines.languageHint')}
           </p>
           <select
             id="language-select"
@@ -243,9 +273,10 @@ export default function EngineControls({
             onChange={(event) => onLanguageChange(event.target.value)}
             className="mt-2.5 w-full appearance-none rounded-xl border border-ink-500/25 bg-surface-2 px-3 py-2 text-sm text-ink-100 transition hover:border-iris-400/40 focus:border-iris-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {LANGUAGES.map((option) => (
-              <option key={option.value || 'auto'} value={option.value}>
-                {option.label}
+            <option value="">{t('engines.languageAuto')}</option>
+            {LANGUAGES.filter(Boolean).map((code) => (
+              <option key={code} value={code}>
+                {languageName(code)}
               </option>
             ))}
           </select>
@@ -254,11 +285,7 @@ export default function EngineControls({
 
       <p className="mt-4 flex items-start gap-2 text-[11px] leading-relaxed text-ink-500">
         <ShieldIcon className="mt-0.5 size-3.5 shrink-0 text-mint-400" />
-        <span>
-          Engines are tried in the order shown. A single request can survive several
-          providers failing in a row — the transcript tells you which engine produced it and
-          why the others were skipped.
-        </span>
+        <span>{t('engines.chainNote')}</span>
       </p>
     </section>
   );
@@ -286,7 +313,7 @@ function Switch({ id, checked, onChange, disabled, label, labelledBy }) {
       <span
         aria-hidden="true"
         className={`size-4 rounded-full bg-white shadow transition-transform duration-200 ${
-          checked ? 'translate-x-4' : 'translate-x-0.5'
+          checked ? 'translate-x-4 rtl:-translate-x-4' : 'translate-x-0.5 rtl:-translate-x-0.5'
         }`}
       />
     </button>

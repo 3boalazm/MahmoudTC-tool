@@ -34,7 +34,7 @@ const json = (response, status, body) => {
  * and a request counter so tests can assert how many calls were made.
  */
 function createMock({ onRequest, port = 0 }) {
-  const state = { mode: 'ok', requests: 0 };
+  const state = { mode: 'ok', requests: 0, lastAuth: null };
 
   const server = createServer(async (request, response) => {
     const url = new URL(request.url, 'http://localhost');
@@ -48,10 +48,21 @@ function createMock({ onRequest, port = 0 }) {
     }
 
     if (url.pathname === '/__state') {
-      return json(response, 200, { mode: state.mode, requests: state.requests });
+      return json(response, 200, {
+        mode: state.mode,
+        requests: state.requests,
+        lastAuth: state.lastAuth,
+      });
     }
 
     state.requests += 1;
+    /*
+     * Remember the credential this request carried, verbatim.
+     * Lets a test prove which key the app actually used — the env key or the
+     * one a visitor typed into the settings page.
+     */
+    state.lastAuth =
+      request.headers.authorization ?? request.headers['x-gladia-key'] ?? null;
     return onRequest({ request, response, url, state, raw });
   });
 
@@ -71,6 +82,9 @@ function createMock({ onRequest, port = 0 }) {
         get requests() {
           return state.requests;
         },
+        get lastAuth() {
+          return state.lastAuth;
+        },
         close: () => new Promise((done) => server.close(done)),
       });
     });
@@ -88,6 +102,18 @@ export function startDeepgramMock(port = 0) {
        * These are the only endpoints that legitimately report a *remaining*
        * balance, which makes them worth faking precisely.
        */
+      /*
+       * Key-validation probe used by the settings page. Unlike the management
+       * endpoints below it needs no scope, and `auth` mode rejects it so the UI
+       * can be tested against a genuinely invalid key.
+       */
+      if (url.pathname === '/v1/auth/token') {
+        if (state.mode === 'auth') {
+          return json(response, 401, { err_code: 'INVALID_AUTH', err_msg: 'Invalid credentials.' });
+        }
+        return json(response, 200, { api_key_id: 'mock-key', scopes: ['member'] });
+      }
+
       if (url.pathname === '/v1/projects') {
         return json(response, 200, {
           projects: [{ project_id: 'mock-project', name: 'Mock project' }],
@@ -179,6 +205,14 @@ export function startGladiaMock(port = 0) {
         return json(response, 500, { message: 'Gladia is temporarily unavailable.' });
       }
 
+      // Key probe: reading an id that does not exist. 404 = "key accepted".
+      if (url.pathname.startsWith('/v2/pre-recorded/')) {
+        if (state.mode === 'auth') {
+          return json(response, 401, { message: 'Invalid API key.' });
+        }
+        return json(response, 404, { message: 'No such transcription.' });
+      }
+
       if (url.pathname === '/v2/upload' && request.method === 'POST') {
         return json(response, 200, {
           audio_url: 'https://mock.gladia.local/file/1',
@@ -239,6 +273,14 @@ export function startAssemblyAIMock(port = 0) {
         if (state.mode === 'auth') return json(response, 401, { error: 'Authentication failed.' });
         if (state.mode === 'server-error') return json(response, 500, { error: 'Upload failed.' });
         return json(response, 200, { upload_url: 'https://mock.assemblyai.local/upload/1' });
+      }
+
+      // Key probe: list one transcript. 200 = key accepted.
+      if (url.pathname === '/transcript' && request.method === 'GET') {
+        if (state.mode === 'auth') {
+          return json(response, 401, { error: 'Authentication error, API key invalid.' });
+        }
+        return json(response, 200, { transcripts: [], page_details: { limit: 1, result_count: 0 } });
       }
 
       if (url.pathname === '/transcript' && request.method === 'POST') {
@@ -314,6 +356,13 @@ export function startSpeechmaticsMock(port = 0) {
 
         jobId += 1;
         return json(response, 201, { id: `sm-${jobId}`, status: 'running' });
+      }
+
+      // Key probe (and the listing endpoint): 200 = key accepted.
+      if (url.pathname === '/jobs' && request.method === 'GET') {
+        if (state.mode === 'auth') {
+          return json(response, 401, { code: 401, error: 'Permission Denied' });
+        }
       }
 
       if (url.pathname === '/jobs' && request.method === 'GET') {

@@ -22,6 +22,7 @@ import {
   WaveIcon,
   XIcon,
 } from '@/components/Icons';
+import { useI18n } from '@/components/providers/I18nProvider.js';
 import { useRecorder } from '@/hooks/useRecorder';
 import { formatBytes, formatDuration } from '@/lib/client/format';
 
@@ -40,6 +41,7 @@ export default function AudioSourceCard({
   largeUploads = { enabled: false },
   onBusyChange,
 }) {
+  const { t } = useI18n();
   const [tab, setTab] = useState('file');
   const [isDragging, setIsDragging] = useState(false);
   const [fileError, setFileError] = useState(null);
@@ -68,19 +70,22 @@ export default function AudioSourceCard({
       setFileError(null);
 
       if (file.size === 0) {
-        setFileError('That file is empty.');
+        setFileError(t('source.emptyFile'));
         return;
       }
       if (file.size > effectiveMaxMb * 1024 * 1024) {
         setFileError(
-          `${formatBytes(file.size)} exceeds the ${effectiveMaxMb} MB limit. Trim the audio${
-            largeUploads.enabled ? '' : ', connect a Vercel Blob store, or raise MAX_UPLOAD_MB'
-          }.`,
+          [
+            `${formatBytes(file.size)} — ${t('source.tooLarge', { size: effectiveMaxMb })}`,
+            largeUploads.enabled ? '' : t('source.tooLargeHint'),
+          ]
+            .filter(Boolean)
+            .join(' '),
         );
         return;
       }
       if (file.type && !/^(audio|video)\//.test(file.type) && !/\.[a-z0-9]+$/i.test(file.name)) {
-        setFileError('That does not look like an audio file. Try MP3, WAV, M4A, WebM or OGG.');
+        setFileError(t('source.wrongType'));
         return;
       }
 
@@ -90,7 +95,7 @@ export default function AudioSourceCard({
         origin: 'file',
       });
     },
-    [effectiveMaxMb, largeUploads.enabled, onLoad],
+    [effectiveMaxMb, largeUploads.enabled, onLoad, t],
   );
 
   /* Adopt a finished recording automatically — no extra click needed. */
@@ -131,11 +136,9 @@ export default function AudioSourceCard({
           </span>
           <div>
             <h2 id="source-heading" className="text-base font-semibold text-ink-100">
-              1 · Choose your audio
+              {t('source.heading')}
             </h2>
-            <p className="text-sm text-ink-400">
-              Upload a file or record straight from your microphone.
-            </p>
+            <p className="text-sm text-ink-400">{t('studio.subheading')}</p>
           </div>
         </div>
 
@@ -147,7 +150,7 @@ export default function AudioSourceCard({
             className="inline-flex items-center gap-2 rounded-xl border border-ink-500/25 px-3 py-1.5 text-xs font-medium text-ink-300 transition hover:border-rose-400/40 hover:text-rose-400 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <TrashIcon className="size-3.5" />
-            Clear audio
+            {t('source.clear')}
           </button>
         ) : null}
       </header>
@@ -155,7 +158,7 @@ export default function AudioSourceCard({
       {/* ---------------------------------------------------------- tabs */}
       <div
         role="tablist"
-        aria-label="Audio source"
+        aria-label={t('source.tabsLabel')}
         className="mt-5 grid grid-cols-2 gap-1.5 rounded-2xl bg-surface-1/70 p-1.5 ring-1 ring-inset ring-ink-500/15"
       >
         <TabButton
@@ -163,7 +166,7 @@ export default function AudioSourceCard({
           onClick={() => setTab('file')}
           disabled={isLocked}
           icon={<UploadIcon className="size-4" />}
-          label="Upload file"
+          label={t('source.uploadTab')}
           hint="MP3, WAV, M4A, WebM…"
           panelId="panel-file"
         />
@@ -172,8 +175,8 @@ export default function AudioSourceCard({
           onClick={() => setTab('record')}
           disabled={isLocked}
           icon={<MicIcon className="size-4" />}
-          label="Record live"
-          hint="Browser microphone"
+          label={t('source.recordTab')}
+          hint={t('source.recordHint')}
           panelId="panel-record"
         />
       </div>
@@ -218,25 +221,27 @@ export default function AudioSourceCard({
             <UploadIcon className="size-6" />
           </div>
           <p className="mt-4 text-sm font-medium text-ink-200">
-            Drop audio here, or{' '}
+            {t('source.dropTitle')}{' '}
             <button
               type="button"
               disabled={isLocked}
               onClick={() => inputRef.current?.click()}
               className="rounded font-semibold text-iris-300 underline decoration-iris-400/40 decoration-2 underline-offset-4 transition hover:text-iris-200 disabled:cursor-not-allowed"
             >
-              browse your files
+              {t('source.browse')}
             </button>
           </p>
-          <p className="mt-2 text-xs text-ink-400">
-            MP3 · WAV · M4A · WebM · OGG · FLAC · AAC — up to {effectiveMaxMb} MB
+          <p className="mt-2 text-xs leading-relaxed text-ink-400">
+            {t('source.formats')} · {effectiveMaxMb} MB
           </p>
-          {largeUploads.enabled ? (
-            <p className="mt-1.5 text-[11px] text-ink-500">
-              Files above {maxUploadMb} MB upload directly to Vercel Blob and are deleted as soon as
-              transcription finishes.
-            </p>
-          ) : null}
+          <p className="mt-1.5 text-[11px] text-ink-500">
+            {largeUploads.enabled
+              ? t('studio.footerBlob', {
+                  inline: maxUploadMb,
+                  max: largeUploads.maxUploadMb ?? maxUploadMb,
+                })
+              : t('source.maxSize', { size: effectiveMaxMb, blob: effectiveMaxMb })}
+          </p>
         </div>
 
         {fileError ? <InlineError message={fileError} /> : null}
@@ -251,7 +256,7 @@ export default function AudioSourceCard({
         className="mt-4"
       >
         {!recorder.isSupported ? (
-          <InlineError message="This browser cannot record audio (MediaRecorder is unavailable). Upload a file instead." />
+          <InlineError message={t('source.noMediaRecorder')} />
         ) : (
           <div className="rounded-3xl border border-ink-500/20 bg-surface-1/50 p-5">
             <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -260,7 +265,7 @@ export default function AudioSourceCard({
                   type="button"
                   onClick={() => (isActive ? recorder.stop() : recorder.start())}
                   disabled={disabled && !isActive}
-                  aria-label={isActive ? 'Stop recording' : 'Start recording'}
+                  aria-label={isActive ? t('source.stop') : t('source.start')}
                   className={`relative grid size-16 shrink-0 place-items-center rounded-full transition focus-visible:outline-offset-4 disabled:cursor-not-allowed disabled:opacity-50 ${
                     isActive
                       ? 'bg-rose-500 text-white'
@@ -286,14 +291,14 @@ export default function AudioSourceCard({
                   </p>
                   <p className="text-xs text-ink-400" role="status">
                     {recorder.status === 'requesting'
-                      ? 'Waiting for microphone permission…'
+                      ? t('source.permission')
                       : recorder.status === 'paused'
-                        ? 'Paused — resume or stop to finish'
+                        ? t('source.paused')
                         : recorder.status === 'stopping'
-                          ? 'Finishing up…'
+                          ? t('source.finishing')
                           : recorder.status === 'recording'
-                            ? 'Recording… speak naturally'
-                            : 'Press the microphone to start'}
+                            ? t('source.recording')
+                            : t('source.press')}
                   </p>
                 </div>
               </div>
@@ -305,7 +310,7 @@ export default function AudioSourceCard({
                   disabled={!isActive || recorder.status === 'stopping'}
                   className="rounded-xl border border-ink-500/25 px-3 py-2 text-xs font-medium text-ink-300 transition hover:border-iris-400/40 hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {recorder.status === 'paused' ? 'Resume' : 'Pause'}
+                  {recorder.status === 'paused' ? t('source.resume') : t('source.pause')}
                 </button>
                 <button
                   type="button"
@@ -315,21 +320,19 @@ export default function AudioSourceCard({
                   disabled={!isActive}
                   className="rounded-xl border border-ink-500/25 px-3 py-2 text-xs font-medium text-ink-300 transition hover:border-rose-400/40 hover:text-rose-400 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Stop
+                  {t('source.stop')}
                 </button>
               </div>
             </div>
 
             <div className="mt-5">
               <LevelMeter levels={recorder.levels} isActive={isActive} />
-              <p className="mt-2 text-center text-[11px] text-ink-500">
-                Live input level — if the bars barely move, check your microphone.
-              </p>
+              <p className="mt-2 text-center text-[11px] text-ink-500">{t('source.level')}</p>
             </div>
 
             {recorder.error ? (
               <InlineError
-                message={recorder.error}
+                message={t(`source.rec.${recorder.error}`)}
                 onDismiss={recorder.clearError}
               />
             ) : null}
@@ -337,8 +340,7 @@ export default function AudioSourceCard({
             {recorder.recording && audio?.origin === 'recording' ? (
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-mint-500/25 bg-mint-500/10 px-4 py-3">
                 <p className="text-xs text-mint-400">
-                  Recording captured ({formatDuration(recorder.recording.durationSeconds)}) and
-                  attached below.
+                  {t('source.decoded')} · {formatDuration(recorder.recording.durationSeconds)}
                 </p>
                 <button
                   type="button"
@@ -350,7 +352,7 @@ export default function AudioSourceCard({
                   className="inline-flex items-center gap-1.5 rounded-lg border border-mint-500/30 px-2.5 py-1 text-[11px] font-medium text-mint-400 transition hover:bg-mint-500/15"
                 >
                   <XIcon className="size-3" />
-                  Record again
+                  {t('source.recordTab')}
                 </button>
               </div>
             ) : null}
@@ -378,13 +380,13 @@ export default function AudioSourceCard({
                     {audio.durationSeconds
                       ? formatDuration(audio.durationSeconds)
                       : isDecoding
-                        ? 'analysing…'
-                        : 'unknown'}
+                        ? t('common.loading')
+                        : '—'}
                   </span>
                   {audio.origin === 'recording' ? (
                     <>
                       <span aria-hidden="true">•</span>
-                      <span className="text-mint-400">microphone</span>
+                      <span className="text-mint-400">{t('source.fromMic')}</span>
                     </>
                   ) : null}
                 </p>
@@ -395,10 +397,9 @@ export default function AudioSourceCard({
               src={audio.url}
               controls
               preload="metadata"
-              className="h-9 w-full max-w-[16rem] [color-scheme:dark]"
-            >
-              Your browser does not support audio playback.
-            </audio>
+              className="h-9 w-full max-w-[16rem]"
+              title={t('source.preview')}
+            />
           </div>
 
           <Waveform peaks={peaks} isDecoding={isDecoding} className="mt-4" height={52} />
@@ -418,7 +419,7 @@ function TabButton({ active, onClick, disabled, icon, label, hint, panelId }) {
       aria-controls={panelId}
       onClick={onClick}
       disabled={disabled}
-      className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-start transition disabled:cursor-not-allowed disabled:opacity-50 ${
         active
           ? 'bg-surface-3 text-ink-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
           : 'text-ink-400 hover:bg-surface-2/70 hover:text-ink-200'
@@ -445,7 +446,7 @@ function InlineError({ message, onDismiss }) {
         <button
           type="button"
           onClick={onDismiss}
-          aria-label="Dismiss"
+          aria-label={t('common.dismiss')}
           className="rounded p-0.5 text-rose-400/80 transition hover:text-rose-400"
         >
           <XIcon className="size-3.5" />

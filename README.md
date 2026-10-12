@@ -29,11 +29,21 @@ consumed per engine, plus every figure each provider is willing to publish
 through its API — Deepgram's remaining balance and hours, Speechmatics' batch
 hours, and an explicit "this provider has no usage API" on the two that do not.
 
+It is a **multi-page** app (not a one-pager), **installable** on phones and
+desktops, fully **bilingual (English / Arabic with RTL)** and ships both a
+**light and a dark theme**.
+
 ---
 
 ## Contents
 
 - [Features](#features)
+- [Pages](#pages)
+- [Where a key comes from](#where-a-key-comes-from)
+- [Bring your own API keys](#bring-your-own-api-keys)
+- [English & Arabic (RTL)](#english--arabic-rtl)
+- [Installing it as an app (PWA)](#installing-it-as-an-app-pwa)
+- [Light & dark themes](#light--dark-themes)
 - [Quick start](#quick-start)
 - [Environment variables](#environment-variables)
 - [How the fallback works](#how-the-fallback-works)
@@ -49,9 +59,22 @@ hours, and an explicit "this provider has no usage API" on the two that do not.
 
 ## Features
 
+**App shell**
+
+- **Separate pages**, each with its own title, description and route:
+  `/` · `/studio` · `/engines` · `/usage` · `/faq` · `/settings` (+ `/offline`).
+- **Your own keys** — paste a provider key in `/settings`, test it, disconnect it;
+  stored in an `httpOnly` cookie on your device, never on the server.
+- **Bilingual UI** — English and Arabic, with automatic RTL flipping, a cookie
+  that survives restarts, and `Accept-Language` detection on the first visit.
+- **Installable PWA** — web manifest, service worker, maskable icons, an
+  in-app install button, and an offline shell.
+- **Light / dark / system** theme, resolved before the first paint so there is
+  never a flash of the wrong theme, with safe-area insets for notched phones.
+
 **Front end**
 
-- Modern dark studio UI: hero, guided three-step flow, engine comparison, FAQ.
+- Modern studio UI: hero, guided three-step flow, engine comparison, FAQ.
 - **File upload** — drag & drop or browse. MP3, WAV, M4A, MP4, WebM, OGG, Opus,
   FLAC, AAC, AMR, AIFF, 3GP, MOV, MKV.
 - **Live recording** — `MediaRecorder` with start / pause / resume / stop, a
@@ -83,6 +106,148 @@ hours, and an explicit "this provider has no usage API" on the two that do not.
 - `POST /api/blob/upload` — mints short-lived Vercel Blob tokens so files larger
   than the serverless body limit can bypass the function entirely.
 - Automatic timeouts, SSRF-safe URL validation, credential redaction.
+
+---
+
+## Pages
+
+| Route | What it is |
+| --- | --- |
+| `/` | Landing page: the pitch, the numbers, and one diagram of the failover chain. It links out instead of doing everything itself. |
+| `/studio` | The transcriber: audio source, engine picker, run bar, transcript, usage panel. |
+| `/engines` | What each of the four providers is, which key enables it, what its API exposes, and the exact code-by-code hand-off table. |
+| `/usage` | The consumption report, plus an explanation of where every number comes from. |
+| `/settings` | Connect your own provider keys, test them, and disconnect. |
+| `/faq` | Questions and troubleshooting. |
+| `/offline` | Served by the service worker when a navigation fails with no connection. |
+
+Every page is a server component that reads the locale cookie, so titles,
+descriptions and `<html lang dir>` always agree with the copy.
+
+---
+
+## Where a key comes from
+
+The app ships with keys for all four engines, so a fresh clone transcribes on
+the first run — `cp .env.local.example .env.local` is optional, not required.
+
+Each engine resolves its key on every request, highest priority first:
+
+| # | Source | Scope | Removable from the UI |
+| --- | --- | --- | --- |
+| 1 | `/settings` — a key you paste yourself | this browser only | yes, one click |
+| 2 | an environment variable (`DEEPGRAM_API_KEY`, …) | the whole deployment | no, disable it for this browser instead |
+| 3 | the built-in default in `lib/server/default-keys.js` | every install of this repo | no, disable it for this browser instead |
+| 4 | nothing | — | engine reports as unavailable |
+
+Setting an environment variable replaces tier 3 for that engine **only**; the
+other three keep their defaults. That is the whole override mechanism — change
+one, leave the rest alone.
+
+To run on your own keys exclusively, set `DISABLE_BUILTIN_KEYS=1` and the
+built-in defaults drop out of the chain entirely.
+
+Only the key is ever substituted. Model, timeouts, base URL and poll intervals
+stay deployment-controlled, so a visitor can bring a key without also bringing
+a provider contract.
+
+---
+
+## Bring your own API keys
+
+The app runs out of the box on the deployment's own keys, and equally well on
+*yours*. `/settings` connects a personal key per engine, tests it against the
+provider, and disconnects it again.
+
+| | Deployment key (`DEEPGRAM_API_KEY`, …) | Your key (settings page) |
+| --- | --- | --- |
+| Who can use it | every visitor | this browser only |
+| Where it lives | server environment variables | an `httpOnly` cookie on the device (`stt_keys`) |
+| Used when | no personal key is saved | always wins over the deployment key |
+| Removable from the UI | no — disable it for this browser instead | yes, one click ("Disconnect") |
+| Testable before saving | — | yes, a real authenticated probe per provider |
+
+Design notes:
+
+- **A key is never sent back to the browser.** Responses carry a mask
+  (`dg-t••••2a91`) and nothing else; a key saved here is readable only by the
+  server that stores it.
+- **`httpOnly` + `SameSite=Lax` + `Secure` in production**, so an injected script
+  cannot read it and another site cannot make the browser attach it. Cross-site
+  requests to `/api/credentials` are refused outright.
+- **Nothing is persisted server-side.** That is what makes this deployable to
+  Vercel with no database and no account system — the key travels with the
+  browser that typed it, and the server only ever holds it for the duration of a
+  request.
+- **A rejected key is not stored.** The probe returns `REJECTED` on a 401 and the
+  previous key stays in force, so fixing a typo can never cost you a working
+  channel. Inconclusive results (timeout, unreachable) *are* stored, with the
+  outcome shown verbatim.
+- **Usage stays per-credential.** Provider-reported figures are cached under a
+  fingerprint of the key that fetched them, so one visitor's balance can never
+  appear on another's screen.
+- **The probe is scope-safe.** Deepgram's probe uses `/v1/auth/token` (any scope)
+  rather than the management API, which would call a perfect listen-only key
+  broken.
+
+Adding an engine to the settings page is one entry in `PROBES`
+(`lib/server/verify.js`) plus the existing engine registry.
+
+---
+
+## English & Arabic (RTL)
+
+- `lib/i18n/dictionaries/en.js` is the source of truth; `ar.js` mirrors it
+  **key for key**, and `npm test` fails if the two ever drift — a missing
+  translation can never ship as a blank label or a raw `some.key` on screen.
+- The active locale lives in the `stt_locale` cookie, so the server renders the
+  correct `lang` and `dir` on the first byte. Switching languages calls
+  `router.refresh()`, which re-renders the whole tree — server components
+  included — so a half-translated screen is not possible.
+- With no cookie, the first visit follows the browser's `Accept-Language`.
+- Layout uses logical properties (`ms-`/`me-`/`start-`/`end-`, `rtl:` variants),
+  so the interface mirrors properly rather than merely swapping text.
+- API error codes are translated on the client from the code the server returns,
+  which keeps the route's payload language-neutral.
+
+Adding a locale: drop `lib/i18n/dictionaries/xx.js` next to the others, add it to
+`LOCALES` in `lib/i18n/config.js`, and add it to `RTL_LOCALES` if it reads
+right-to-left. Nothing else needs touching.
+
+---
+
+## Installing it as an app (PWA)
+
+```bash
+npm run icons     # regenerates public/icons/* from the SVG mark
+```
+
+- `app/manifest.js` builds the manifest **per request**: name, short name,
+  description, `lang`, `dir` and `theme_color` all follow the visitor's locale
+  and theme cookies, and it advertises the pages as app shortcuts.
+- `public/sw.js` is a deliberately conservative service worker: navigations are
+  network-first with a cached fallback and `/offline` as the last resort, build
+  output is cache-first (it is content-hashed), and **`/api/*` is never cached** —
+  a replayed transcript would be worse than an honest error.
+- The install button appears when the browser offers a prompt, and on iOS —
+  where no programmatic prompt exists — it shows the Share → Add to Home Screen
+  instructions instead.
+- Installed windows get safe-area insets, `viewport-fit=cover`, and a
+  `display: standalone` layout with no browser chrome.
+
+---
+
+## Light & dark themes
+
+- The `stt_theme` cookie stores `system`, `light` or `dark`.
+- A tiny inline script in `<head>` resolves `system` against
+  `prefers-color-scheme` **before the body paints**, so the first frame is
+  already correct — no flash, no hydration mismatch.
+- The whole palette is one set of CSS variables. The light theme re-declares the
+  same variables under `[data-theme='light']`, so every component — present and
+  future — is themed without a single `dark:` variant.
+- The manifest follows the same cookie, so the installed app window background
+  matches the interface.
 
 ---
 
@@ -127,9 +292,18 @@ npm run test:e2e  # end-to-end tests against mock providers
 
 ## Environment variables
 
-Copy `.env.local.example` → `.env.local`.
+All four engines work out of the box on the built-in default keys. Setting a
+variable overrides the default for that engine; see
+[Where a key comes from](#where-a-key-comes-from). Any of them can also be
+replaced per browser from `/settings` without touching the deployment.
 
-### Required (at least one — they are tried in order)
+Copy `.env.local.example` → `.env.local` — optional, the app ships with keys. There are **no environment variables
+for the interface layer**: language and theme are per-visitor cookies.
+
+### Provider keys (all optional)
+
+Every engine already has a built-in default key, so **none of these are
+required**. Set one to override the default for that engine.
 
 | Variable | Description |
 | --- | --- |
@@ -137,6 +311,7 @@ Copy `.env.local.example` → `.env.local`.
 | `GLADIA_API_KEY` | Gladia key — first fallback. Alias: `GLADIA_KEY`. |
 | `ASSEMBLYAI_API_KEY` | AssemblyAI key — second fallback. Aliases: `ASSEMBLYAI_KEY`, `AAI_API_KEY`. |
 | `SPEECHMATICS_API_KEY` | Speechmatics key — third fallback. Aliases: `SPEECHMATICS_KEY`, `SM_API_KEY`. |
+| `DISABLE_BUILTIN_KEYS` | `false` — set `1` to ignore the shipped defaults and run on environment + `/settings` keys only. |
 | `ENGINE_ORDER` | Failover order, e.g. `deepgram,gladia,assemblyai,speechmatics` (the default). Omit what you do not use. Unknown ids are appended, so a typo can never leave you with zero engines. |
 
 ### Large uploads (strongly recommended on Vercel)
@@ -426,6 +601,24 @@ Vercel-specific features are all optional and auto-detected:
 
 ## API reference
 
+### `GET|POST|DELETE /api/credentials`
+
+The endpoint behind `/settings`. Never returns a key — only a mask and its
+source (`settings` | `environment` | `disabled` | `none`).
+
+| Call | Body / query | Does |
+| --- | --- | --- |
+| `GET` | — | masked status of every engine, plus the failover chain this browser can run |
+| `POST` | `{ engine, key }` | validates the shape, probes the provider, stores it (unless the provider answered `401`) |
+| `POST` | `{ engine, action: "test" }` | probes the stored or env key without changing anything |
+| `POST` | `{ engine, action: "disable" }` | shadows the deployment key for this browser |
+| `POST` | `{ engine, action: "enable" }` | removes that shadow |
+| `DELETE` | `?engine=gladia` | forgets one engine |
+| `DELETE` | `?all=1` | forgets everything (disconnect) |
+
+`403` cross-site · `400` unknown engine, unusable key shape (`X-Key-Rejected`
+carries the reason) · `429` too many probe attempts.
+
 ### `POST /api/transcribe`
 
 `multipart/form-data` (standard) or `application/json` (remote audio).
@@ -491,9 +684,15 @@ audio extensions, with a hard size ceiling baked into the token.
 
 ```
 app/
-  layout.js                     Fonts, metadata, skip link
-  page.js                       Landing page: hero, studio, comparison, FAQ
-  globals.css                   Tailwind v4 @theme design tokens + keyframes
+  layout.js                     Locale + theme resolution, chrome, PWA metadata
+  page.js                       Landing page (links out to the other pages)
+  studio/page.js                The transcriber
+  engines/page.js               Provider detail + hand-off table
+  usage/page.js                 Consumption page
+  faq/page.js                   Questions & troubleshooting
+  offline/page.js               Offline shell (served by the service worker)
+  manifest.js                   Localised web app manifest
+  globals.css                   Design tokens (dark + light), keyframes, PWA CSS
   icon.svg                      Favicon
   api/
     transcribe/route.js         ⭐ Proxy + smart fallback orchestration
@@ -502,6 +701,15 @@ app/
     usage/route.js              Consumption + remaining-limit report
 
 components/
+  CredentialsPanel.js           The connect/disconnect UI (server-rendered first)
+  layout/SiteHeader.js          Sticky nav, mobile sheet, switchers, install CTA
+  layout/SiteFooter.js          Shared footer
+  layout/LanguageSwitcher.js    EN ⇄ AR toggle
+  layout/ThemeToggle.js         system → light → dark
+  providers/I18nProvider.js     Translator + locale switching (client)
+  providers/ThemeProvider.js    Theme cookie + pre-paint script
+  InstallApp.js                 Install button/banner + iOS instructions
+  ServiceWorkerRegistrar.js     Registers the worker in production
   TranscriptionStudio.js        Client orchestrator; owns the request lifecycle
   AudioSourceCard.js            Upload / record tabs, drop zone, timer, meters
   EngineControls.js             Engine radio group (auto + N engines), switch, language
@@ -515,7 +723,13 @@ hooks/
   useAudioSource.js             Object URLs, peak decoding, duration recovery
 
 lib/
+  i18n/config.js                Locales, themes, cookies, direction, Accept-Language
+  i18n/index.js                 Dictionaries, flattening, interpolation, translator
+  i18n/server.js                Server helper: locale → translator
+  i18n/dictionaries/{en,ar}.js  The strings (parity enforced by tests)
   engines-meta.js               Engine registry (labels, models, accents, usage mode)
+  server/credentials.js         Key cookie: parse, validate, mask, fingerprint, precedence
+  server/verify.js              Per-provider "is this key alive?" probes
   engines.js                    ⭐ Four provider adapters, error taxonomy
   url-guard.js                  SSRF-safe URL validation
   client/api.js                 fetch client + Blob direct upload
@@ -526,7 +740,18 @@ lib/
   server/rate-limit.js          In-process fixed-window limiter
   server/http.js                Response shapes + credential redaction
 
+public/
+  sw.js                         Service worker (offline shell, never caches /api)
+  icons/                        Generated PNG icons (npm run icons)
+
+scripts/
+  generate-icons.mjs            SVG mark → PWA icon set (sharp)
+
 tests/
+  credentials.test.mjs          Key cookie, validation, masks, precedence, cache isolation
+  i18n.test.mjs                 Dictionary parity + every key used in the code
+  theme.test.mjs                Palette parity + the theme cookie contract
+  pwa.test.mjs                  Manifest, icons, and the service worker policy
   transcription.test.mjs        Unit tests (no network)
   e2e.mjs                       End-to-end, incl. emulated Vercel limits
   mock-providers.mjs            Scenario-driven provider mocks
@@ -549,8 +774,8 @@ tests/
 ## Testing
 
 ```bash
-npm test                       # 47 unit tests: parsing, errors, formats, URL guard
-npm run build && npm run test:e2e   # 33 end-to-end scenarios
+npm test                       # 90 unit tests: parsing, errors, i18n parity, theme, PWA, credentials
+npm run build && npm run test:e2e   # 48 end-to-end scenarios
 ```
 
 The E2E suite boots the **real production build** against mock providers and
@@ -565,6 +790,15 @@ asserts the contract end to end:
   remote URL (it ingests bytes only);
 - `/api/usage` reports Deepgram's balance, Speechmatics' batch hours, and says
   "no API" for the two providers that publish nothing;
+- every page renders, `/studio` owns the transcriber, and the landing page
+  links to it instead of containing it;
+- an Arabic cookie flips `lang="ar" dir="rtl"` and translates the copy, while
+  `Accept-Language` does the same with no cookie at all;
+- the theme cookie reaches the document, the manifest is localised and
+  installable, and the service worker never caches `/api/*`;
+- a key saved on `/settings` is the one the provider receives (asserted on the
+  wire), a rejected key never replaces a working one, disconnecting restores the
+  deployment key, and no response ever contains a key;
 - validation: missing audio, wrong type, oversize, third-party `audioUrl` (SSRF);
 - rate limiting and `Retry-After`;
 - **an emulated Vercel deployment** — `VERCEL=1`, a proxy that enforces the
@@ -602,10 +836,23 @@ curl -X POST localhost:3000/api/usage | jq '.engines[] | {engine, local: .local.
 
 ## Security notes
 
-- **Keys stay server-side.** Only `/api/transcribe`, `/api/blob/upload` and
-  `/api/health` touch `process.env`; every one is a server route. Nothing is
-  exposed with a `NEXT_PUBLIC_` prefix. The browser only ever calls same-origin
-  paths.
+The keys shipped in `lib/server/default-keys.js` are **base64-encoded, not
+encrypted** — that keeps automated scanners, which match on provider key
+shapes, from harvesting them out of this public repository. It is not a
+security boundary: anyone who reads the file can decode it in one line. Rotate
+them (`node -e "console.log(Buffer.from('KEY').toString('base64'))"`), move
+them into environment variables, or make the repository private if they matter.
+
+- **Deployment keys stay server-side.** Only the API routes touch
+  `process.env`; nothing is exposed with a `NEXT_PUBLIC_` prefix and the browser
+  only ever calls same-origin paths.
+- **Personal keys never leave their device in readable form.** A key saved on
+  `/settings` is stored in an `httpOnly`, `SameSite=Lax`, `Secure`-in-production
+  cookie, is written to no database and no log, and is only ever sent back to
+  this server so it can call the provider. Responses carry a mask; a fingerprint
+  (SHA-256, 12 hex chars) is used solely to keep usage caches apart. `/api/credentials`
+  refuses cross-site callers, and saving/testing is rate limited because each
+  attempt costs a provider round trip.
 - **SSRF containment.** `audioUrl` is validated against the exact Vercel Blob
   hostname pattern, https-only, no credentials, no ports, no fragments, length
   capped. Arbitrary and internal URLs are rejected before any provider sees them.

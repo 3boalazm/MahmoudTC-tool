@@ -31,7 +31,13 @@ import {
 } from '@/lib/engines';
 import { ENGINE_MAP, normaliseEngineId } from '@/lib/engines-meta';
 import { deleteBlob, isBlobEnabled, isOwnBlobUrl } from '@/lib/server/blob';
-import { engineAvailability, hasAnyEngine, serverConfig } from '@/lib/server/config';
+import {
+  engineAvailability,
+  hasAnyEngine,
+  resolveEngineConfig,
+  serverConfig,
+} from '@/lib/server/config';
+import { KEYS_COOKIE, parseCredentialCookie } from '@/lib/server/credentials';
 import { recordAttempt } from '@/lib/server/usage';
 import { checkRateLimit, clientIdentifier } from '@/lib/server/rate-limit';
 import { errorResponse, jsonResponse, redact } from '@/lib/server/http';
@@ -61,15 +67,23 @@ const ACCEPTED_MIME =
   /^(audio|video)\/|^application\/(ogg|octet-stream)$|^audio\/(x-)?(m4a|mp4|mpeg|webm|ogg|opus|flac|aac|wav|amr|aiff|basic)$/i;
 
 export async function POST(request) {
+  /*
+   * Keys can come from the deployment's environment or from the visitor's own
+   * settings cookie (see lib/server/credentials.js). Read them once per request:
+   * the cookie wins, the environment is the fallback.
+   */
+  const credentials = parseCredentialCookie(request.cookies.get(KEYS_COOKIE)?.value);
+
   /* ---------------------------------------------------------------------- */
-  /* 0. Fail fast when the deployment has no credentials at all             */
+  /* 0. Fail fast when there is no usable credential at all                 */
   /* ---------------------------------------------------------------------- */
-  if (!hasAnyEngine()) {
+  if (!hasAnyEngine(credentials)) {
     return errorResponse({
       status: 503,
       code: ERROR_CODES.MISSING_KEY,
       message:
-        'No speech-to-text engine is configured. Add DEEPGRAM_API_KEY and/or GLADIA_API_KEY to .env.local and restart the server.',
+        'No speech-to-text engine is configured. Add a key on the settings page (/settings), or set DEEPGRAM_API_KEY and friends in .env.local.',
+      hint: 'Open /settings to paste a key, or add one to .env.local and restart the server.',
     });
   }
 
@@ -118,7 +132,7 @@ export async function POST(request) {
     !serverConfig.allowClientFallbackOption ||
     readBoolean(getField('fallback'), true);
 
-  const availability = engineAvailability();
+  const availability = engineAvailability(credentials);
   const plan = buildEnginePlan({ requestedEngine, wantsFallback, availability });
 
   if (!plan.length) {
@@ -144,7 +158,7 @@ export async function POST(request) {
     const nextEngine = plan[index + 1];
 
     try {
-      const result = await runEngine(engine, audio, { language });
+      const result = await runEngine(engine, audio, { language, credentials });
 
       if (result.text) {
         attempts.push(successEntry(engine, result));
@@ -406,8 +420,8 @@ async function releaseSource(audioUrl) {
  * URL — and returns the same normalised output, so adding an engine is a matter
  * of adding one case here plus one entry in `lib/engines-meta.js`.
  */
-async function runEngine(engine, audio, { language }) {
-  const config = serverConfig[engine] ?? {};
+async function runEngine(engine, audio, { language, credentials = {} }) {
+  const config = resolveEngineConfig(engine, credentials) ?? {};
 
   switch (engine) {
     case 'deepgram':
