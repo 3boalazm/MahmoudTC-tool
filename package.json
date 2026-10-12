@@ -1,0 +1,41 @@
+{
+  "name": "mahmoudtc-stt-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-ready Speech-to-Text studio: Deepgram Nova-2 with automatic Gladia fallback, proxied through Next.js API routes.",
+  "keywords": [
+    "speech-to-text",
+    "stt",
+    "transcription",
+    "deepgram",
+    "gladia",
+    "nextjs",
+    "tailwindcss"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "test": "node --test tests/*.test.mjs",
+    "test:e2e": "node tests/e2e.mjs",
+    "demo": "node tests/mock-servers.mjs"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.1",
+    "geist": "^1.7.2",
+    "next": "^16.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "eslint": "^9.39.0",
+    "eslint-config-next": "^16.4.0",
+    "tailwindcss": "^4.3.3"
+  }
+}

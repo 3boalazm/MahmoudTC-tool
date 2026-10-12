@@ -1,1 +1,649 @@
-# MahmoudTC-tool
+# Speech to Text Studio
+
+A production-ready speech-to-text web app: upload a file or record live in the
+browser, and get clean, editable, exportable text.
+
+Four best-in-class engines sit behind **one** API route. Deepgram (Nova-2) does
+the work; if it hits a rate limit, runs out of credit, or falls over, **Gladia,
+AssemblyAI and Speechmatics take over in turn** and the user sees nothing but a
+finished transcript.
+
+API keys never reach the browser — every request is proxied through a Next.js
+route handler. The chain is ordered by `ENGINE_ORDER` and every engine is tried
+in turn until one succeeds.
+
+```
+Browser ──► /api/transcribe ──► Deepgram Nova-2        (primary)
+                   │                    │ 429 / 402 / 401 / 5xx / timeout / empty transcript
+                   │                    ▼
+                   │             Gladia Solaria         (fallback 1)
+                   │                    │ still failing
+                   │                    ▼
+                   │             AssemblyAI Universal   (fallback 2, upload → job → poll)
+                   │                    │ still failing
+                   └────────────► Speechmatics enhanced (fallback 3, batch job → poll)
+```
+
+The studio also ships a **usage & remaining-limit panel**: what this app has
+consumed per engine, plus every figure each provider is willing to publish
+through its API — Deepgram's remaining balance and hours, Speechmatics' batch
+hours, and an explicit "this provider has no usage API" on the two that do not.
+
+---
+
+## Contents
+
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Environment variables](#environment-variables)
+- [How the fallback works](#how-the-fallback-works)
+- [Usage & remaining limits](#usage--remaining-limits)
+- [Deploying to Vercel](#deploying-to-vercel) ← **read this one**
+- [API reference](#api-reference)
+- [Architecture](#architecture)
+- [Testing](#testing)
+- [Security notes](#security-notes)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Features
+
+**Front end**
+
+- Modern dark studio UI: hero, guided three-step flow, engine comparison, FAQ.
+- **File upload** — drag & drop or browse. MP3, WAV, M4A, MP4, WebM, OGG, Opus,
+  FLAC, AAC, AMR, AIFF, 3GP, MOV, MKV.
+- **Live recording** — `MediaRecorder` with start / pause / resume / stop, a
+  wall-clock timer, and a real-time input level meter.
+- Real waveform peaks decoded in-browser, plus duration and size readouts.
+- Engine picker (Automatic / Deepgram / Gladia / AssemblyAI / Speechmatics),
+  automatic-fallback switch, and a 21-language hint dropdown. Unconfigured
+  engines are greyed out honestly, and the picker is rendered from
+  `/api/health` — add an engine to the registry and it appears.
+- Live status: staged progress messages, per-second elapsed counter, cancel.
+- Editable transcript with word / character / sentence counts, estimated reading
+  time, confidence, and detected language.
+- One-click **Copy**, plus `.txt` and `.srt` (word/segment timings) downloads.
+- **Usage & remaining-limit panel**: per-engine consumption, Deepgram's real
+  balance, Speechmatics' batch hours, and an honest "no usage API" card
+  elsewhere — with the provenance of every number one click away.
+- Keyboard support: `⌘/Ctrl + Enter` to transcribe, `Esc` to cancel, arrow keys
+  to move between engines, full focus-visible states, ARIA live regions.
+- Zero layout shift, `prefers-reduced-motion` respected, mobile-first responsive.
+
+**Back end**
+
+- `POST /api/transcribe` — validates, rate-limits, walks the engine chain,
+  falls back on retryable failures, normalises four providers into one JSON shape.
+- `GET /api/health` — reports which credentials exist (never their values) so
+  the UI can adapt.
+- `GET /api/usage` — consumption per engine plus every provider figure that
+  actually exists.
+- `POST /api/blob/upload` — mints short-lived Vercel Blob tokens so files larger
+  than the serverless body limit can bypass the function entirely.
+- Automatic timeouts, SSRF-safe URL validation, credential redaction.
+
+---
+
+## Quick start
+
+```bash
+# 1. Install
+npm install
+
+# 2. Configure
+cp .env.local.example .env.local
+#    …then paste your keys into .env.local
+
+# 3. Run
+npm run dev          # http://localhost:3000
+```
+
+Get keys here:
+
+| Engine | Sign up | Notes |
+| --- | --- | --- |
+| **Deepgram** | <https://console.deepgram.com/signup> | Free credit on signup. Primary engine. |
+| **Gladia** | <https://app.gladia.io/> | Free tier available. Fallback 1. |
+| **AssemblyAI** | <https://www.assemblyai.com/dashboard/activation> | Activate the account, then copy a key. Fallback 2. |
+| **Speechmatics** | <https://portal.speechmatics.com/> | Free hours each month; keys are **region-scoped**. Fallback 3. |
+
+You need **at least one** key to transcribe; every additional one makes the app
+that much harder to take down. Any engine without a key is greyed out in the UI
+and skipped by the chain.
+
+Other scripts:
+
+```bash
+npm run build     # production build
+npm start         # serve the production build
+npm run lint      # ESLint (Next.js core-web-vitals)
+npm test          # unit tests (node:test, no network)
+npm run test:e2e  # end-to-end tests against mock providers
+```
+
+---
+
+## Environment variables
+
+Copy `.env.local.example` → `.env.local`.
+
+### Required (at least one — they are tried in order)
+
+| Variable | Description |
+| --- | --- |
+| `DEEPGRAM_API_KEY` | Deepgram key — primary engine. Aliases: `DEEPGRAM_KEY`, `DG_API_KEY`. |
+| `GLADIA_API_KEY` | Gladia key — first fallback. Alias: `GLADIA_KEY`. |
+| `ASSEMBLYAI_API_KEY` | AssemblyAI key — second fallback. Aliases: `ASSEMBLYAI_KEY`, `AAI_API_KEY`. |
+| `SPEECHMATICS_API_KEY` | Speechmatics key — third fallback. Aliases: `SPEECHMATICS_KEY`, `SM_API_KEY`. |
+| `ENGINE_ORDER` | Failover order, e.g. `deepgram,gladia,assemblyai,speechmatics` (the default). Omit what you do not use. Unknown ids are appended, so a typo can never leave you with zero engines. |
+
+### Large uploads (strongly recommended on Vercel)
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `BLOB_READ_WRITE_TOKEN` | — | Injected by a connected Vercel Blob store. Enables files larger than the serverless body limit. |
+| `BLOB_MAX_UPLOAD_MB` | `200` | Ceiling for a single browser → Blob upload. |
+| `BLOB_DELETE_AFTER_USE` | `true` | Delete the object as soon as transcription finishes. |
+| `ALLOW_BLOB_UPLOAD` | `true` | Set to `false` to disable the large-file path entirely. |
+
+### Tuning (all optional, all with safe defaults)
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `DEEPGRAM_MODEL` | `nova-2` | e.g. `nova-3` for broader language coverage. |
+| `MAX_UPLOAD_MB` | `4` on Vercel, `25` elsewhere | Ceiling for audio streamed *through* the API route. |
+| `FUNCTION_BUDGET_MS` | `55000` on Vercel, `120000` elsewhere | Wall-clock budget for provider work inside one invocation. Provider timeouts are clamped to fit. |
+| `DEEPGRAM_TIMEOUT_MS` | `120000` | Per-request abort timeout. |
+| `GLADIA_TIMEOUT_MS` | `120000` | Per-request abort timeout. |
+| `GLADIA_POLL_TIMEOUT_MS` | `120000` | How long to poll a Gladia job before giving up. |
+| `GLADIA_POLL_INTERVAL_MS` | `1500` on Vercel, `2000` elsewhere | Poll interval. |
+| `ASSEMBLYAI_MODEL` | account default | Leave unset: a stale model id is rejected with a 400. Current ids: `universal-3-pro`, `universal-2`. |
+| `SPEECHMATICS_MODEL` | `enhanced` | `standard` \| `enhanced` \| `melia-1`. |
+| `ASSEMBLYAI_TIMEOUT_MS` / `SPEECHMATICS_TIMEOUT_MS` | `120000` | Per-request abort timeout, clamped to `FUNCTION_BUDGET_MS`. |
+| `ASSEMBLYAI_POLL_TIMEOUT_MS` / `SPEECHMATICS_POLL_TIMEOUT_MS` | `120000` | How long to poll an async job before giving up. |
+| `ASSEMBLYAI_POLL_INTERVAL_MS` / `SPEECHMATICS_POLL_INTERVAL_MS` | `1500` on Vercel, `2000` elsewhere | Poll interval. |
+| `DEEPGRAM_BASE_URL` / `GLADIA_BASE_URL` / `ASSEMBLYAI_BASE_URL` / `SPEECHMATICS_BASE_URL` | public APIs | Point at a gateway, a proxy, or the local mocks (`npm run demo`). |
+| `ENABLE_USAGE_PANEL` | `true` | Set `false` to hide the usage/limits panel (recommended on a public deploy). |
+| `USAGE_CACHE_SEC` | `300` | How long provider-reported usage is cached. |
+| `USAGE_PERIOD_DAYS` | `30` | Look-back window for consumption queries. |
+| `DEEPGRAM_BALANCE_ID` | — | Only needed when the management API refuses to list balances. |
+| `RATE_LIMIT_MAX` | `20` | Requests per window, per client IP. |
+| `RATE_LIMIT_WINDOW_SEC` | `60` | Window length. |
+| `FALLBACK_ON_EMPTY_TRANSCRIPT` | `true` | Treat a silent transcript as retryable. |
+| `ALLOW_CLIENT_FALLBACK_OPTION` | `true` | Set `false` to force fallback on and hide the UI switch. |
+
+---
+
+## How the fallback works
+
+Failures are **classified**, not swallowed. Each provider error maps to a code,
+and only codes that mean "this provider is out of action" trigger a hand-off.
+
+### Fallback triggers (the failing engine's work is retried on the next)
+
+| Trigger | Code | Why it is retryable |
+| --- | --- | --- |
+| `429` rate limit / too many concurrent requests (incl. Speechmatics' "Max concurrent running jobs exceeded") | `RATE_LIMITED` | Transient capacity issue, not a problem with the audio. |
+| `402` payment required / out of credit | `PAYMENT_REQUIRED` | This account cannot pay; the other engine can still work. |
+| `401` / `403` auth failure | `AUTH` | A broken key should not take the whole app down. |
+| `5xx` provider failure | `SERVER_ERROR` | Provider-side incident. |
+| `408` / `504` timeout | `TIMEOUT` | Falling back usually beats making the user wait. |
+| Network / DNS / connection reset | `NETWORK` | Transport-level failure. |
+| Empty transcript from a successful request | `EMPTY_TRANSCRIPT` | Silence to one model is often speech to another. |
+
+### Deliberately **not** retried
+
+| Trigger | Code | Why |
+| --- | --- | --- |
+| `400` malformed audio / unsupported container | `BAD_REQUEST` | The second engine would reject it identically. Fail fast with a clear message. |
+| Request too large / wrong MIME type | `BAD_REQUEST` | A client-side problem. |
+| A credential missing for one engine | `MISSING_KEY` | Non-retryable for that engine, but the plan still runs the others. |
+| Speechmatics asked to transcribe a remote URL | `BAD_REQUEST` | It ingests bytes only; the UI disables that combination up front. |
+
+### What the client sees
+
+Every response — success or failure — has one shape, so the UI never guesses:
+
+```jsonc
+// 200 OK
+{
+  "ok": true,
+  "text": "…transcript…",
+  "engine": "gladia",          // which engine actually produced this
+  "model": "solaria-1",        // Deepgram nova-2 · Gladia Solaria · AssemblyAI universal · Speechmatics enhanced
+  "language": "en",
+  "confidence": 0.97,
+  "durationSeconds": 12.4,
+  "audioSeconds": 12,
+  "fallbackUsed": true,
+  "warnings": ["The primary engine was unavailable (RATE_LIMITED), …"],
+  "words": [{ "word": "Hello", "start": 0, "end": 0.4, "confidence": 0.99 }],
+  "segments": [{ "text": "Hello.", "start": 0, "end": 1.2 }],
+  "attempts": [
+    { "engine": "deepgram", "ok": false, "code": "RATE_LIMITED", "reason": "…" },
+    { "engine": "gladia",   "ok": true,  "model": "solaria-1" }
+  ]
+}
+```
+
+```jsonc
+// 502 Bad Gateway (the whole chain failed)
+{
+  "error": {
+    "code": "SERVER_ERROR",
+    "message": "All 4 engines failed (deepgram, gladia, assemblyai, speechmatics). …",
+    "attempts": [
+      { "engine": "deepgram",     "ok": false, "code": "PAYMENT_REQUIRED", "retryable": true },
+      { "engine": "gladia",       "ok": false, "code": "SERVER_ERROR",     "retryable": true },
+      { "engine": "assemblyai",   "ok": false, "code": "RATE_LIMITED",     "retryable": true },
+      { "engine": "speechmatics", "ok": false, "code": "SERVER_ERROR",     "retryable": true }
+    ]
+  }
+}
+```
+
+Raw provider messages are logged server-side and are only echoed to the client
+when `NODE_ENV !== 'production'`, so production users never see provider noise
+(and never see anything that smells like a credential).
+
+---
+
+## Usage & remaining limits
+
+`GET /api/usage` (and the panel at the bottom of the studio) answers a question
+the providers answer very differently. Rather than invent a number, each engine
+reports exactly what its API is willing to say:
+
+| Engine | Remaining | Consumption | Source |
+| --- | --- | --- | --- |
+| Deepgram | ✅ balance total (USD) | ✅ audio hours + requests, grouped by model | `GET /v1/projects` → `…/balances` + `…/usage/breakdown` |
+| Speechmatics | — (not exposed) | ✅ batch hours + job count for the period | `GET /v2/usage?since=&until=` |
+| Gladia | — (not exposed) | local counters only | no public usage/balance endpoint |
+| AssemblyAI | — (not exposed) | local counters only | no public usage/balance endpoint |
+
+Alongside the provider figures, the server keeps per-engine counters for the
+current process — requests, successes, failures, audio seconds, how often an
+engine had to be reached through fallback — and labels them as exactly that:
+counters that reset on every deploy and are per-instance.
+
+```jsonc
+// GET /api/usage
+{
+  "period": { "start": "2026-09-13", "end": "2026-10-13", "days": 30 },
+  "cacheSeconds": 300,
+  "engines": [
+    {
+      "engine": "deepgram",
+      "label": "Deepgram",
+      "reportsUsage": "balance+usage",
+      "configured": true,
+      "dashboardUrl": "https://console.deepgram.com/",
+      "provider": {
+        "available": true,
+        "remaining": { "amount": 120.45, "units": "USD", "entries": 2 },
+        "consumption": { "hours": 1.5, "requests": 12, "byModel": [ … ] }
+      },
+      "local": { "requests": 4, "successes": 3, "failures": 1, "audioSeconds": 12, "fallbackWins": 1 }
+    },
+    { "engine": "gladia", "reportsUsage": "none", "provider": { "available": false, "error": "Gladia exposes usage only in its dashboard, not over the API." } }
+  ],
+  "totals": { "requests": 12, "audioMinutes": 4, "fallbackWins": 2 },
+  "disclosure": { "localCounters": "…", "providerFigures": "…", "missing": "…" }
+}
+```
+
+Design rules the panel follows:
+
+- A provider without a usage API gets an explicit *"no API for usage"* card and
+  a dashboard link — never a guess.
+- Deepgram's balance needs a key with management/member scope; without it the
+  card explains what scope is missing instead of showing `$0`.
+- Speechmatics is keyed to a **region**; a key from another region is rejected by
+  the usage endpoint, and the card says so.
+- The panel is hidden when `ENABLE_USAGE_PANEL=false`, and `GET /api/usage`
+  returns 404 then. It exposes account-level consumption, so turn it off on a
+  public deployment.
+
+---
+
+## Deploying to Vercel
+
+The app runs on Vercel out of the box, but Vercel adds two hard platform limits
+that a naive STT app walks straight into. Both are handled for you.
+
+### Limit 1 — request bodies are capped at 4.5 MB
+
+A serverless function rejects any request body above **4.5 MB** at the edge,
+*before your code runs*. A 3-minute MP3 is already bigger than that, so the
+browser→function→provider path can never work for real audio.
+
+**The fix, already implemented:** when a Blob store is connected, the browser
+uploads anything above `MAX_UPLOAD_MB` **directly to Vercel Blob** (bytes never
+touch a function), and the route hands the provider the resulting URL. Deepgram,
+Gladia and AssemblyAI all accept remote audio; if the chain reaches Speechmatics,
+we download the object server-side and post the bytes to it. Either way the
+object is deleted the moment transcription finishes. The object is deleted the moment transcription
+finishes, so audio is stored transiently, never as data.
+
+### Limit 2 — functions have a maximum duration
+
+Every plan caps function runtime (60 s on Hobby, up to 300 s on Pro), and a very
+long recording can outlive it.
+
+**The fix, already implemented:** `lib/server/config.js` derives a single
+wall-clock budget (`FUNCTION_BUDGET_MS`, default 55 s on Vercel) and clamps
+*every* provider timeout — including the polling loops for Gladia, AssemblyAI
+and Speechmatics — to fit inside it. The route therefore always has time left to
+return real JSON instead of being killed mid-request, and an engine that runs
+out of budget hands off cleanly to the next one. Nothing here relies on a paid
+plan: the default budget is derived from the platform, not from the plan.
+
+### Step-by-step
+
+1. **Push the repo** and import it at <https://vercel.com/new>. Framework preset:
+   **Next.js** — no build tweaks needed.
+
+2. **Add your secrets** in *Project → Settings → Environment Variables*:
+
+   ```
+   DEEPGRAM_API_KEY      = dg_…
+   GLADIA_API_KEY        = …
+   ASSEMBLYAI_API_KEY    = …
+   SPEECHMATICS_API_KEY  = …
+   ```
+
+   Optional: `ENGINE_ORDER` to reorder the chain, and `ENABLE_USAGE_PANEL=false`
+   if you do not want the consumption panel visible to visitors.
+
+   Set them for **Production**, **Preview** and **Development** so preview
+   deployments behave like production.
+
+3. **Connect a Blob store** for large files — *Project → Storage → Create →
+   Blob*. Tick **Production**, **Preview** *and* **Development**, then create
+   the store. This injects `BLOB_READ_WRITE_TOKEN` automatically.
+
+   For local development, pull it into `.env.local`:
+
+   ```bash
+   npm i -g vercel
+   vercel link
+   vercel env pull .env.local
+   ```
+
+   > If `BLOB_READ_WRITE_TOKEN` is absent, the app still works — it just caps
+   > uploads at 4 MB and says so, in the UI and in the API error message. Nothing
+   > breaks silently.
+
+4. **Deploy.** Then sanity-check the deployment:
+
+   ```bash
+   curl https://your-app.vercel.app/api/health | jq
+   ```
+
+   You should see every keyed engine `available: true`, the failover order in
+   `engineOrder`, and `largeUploads.enabled: true` when the Blob store is
+   connected. `/api/usage` then reports per-engine consumption.
+
+### Upload ceilings you should expect
+
+| Deployment | Inline through the function | Via Vercel Blob |
+| --- | --- | --- |
+| Local / self-hosted | 25 MB (raise with `MAX_UPLOAD_MB`) | not needed |
+| Vercel, no Blob store | **4 MB** | unavailable |
+| Vercel + Blob store | 4 MB | **200 MB** (`BLOB_MAX_UPLOAD_MB`) |
+
+The UI reads all of this from `/api/health` and states the real limits in place,
+rather than advertising a number the platform would refuse.
+
+### Running on a Pro plan
+
+To finish very long recordings, raise **both** for a 300 s ceiling:
+
+```js
+// app/api/transcribe/route.js
+export const maxDuration = 300;
+```
+
+```bash
+FUNCTION_BUDGET_MS=285000
+```
+
+`lib/server/config.js` holds a matching constant with a comment pointing back
+here — keep the two in sync.
+
+### Other hosts
+
+Vercel-specific features are all optional and auto-detected:
+
+- **Netlify / Railway / Fly / a VPS** — everything works; Blob mode simply stays
+  off and the inline limit applies. Set `MAX_UPLOAD_MB` to whatever the host
+  allows.
+- **Docker / Node** — `npm run build && npm start`. No platform limits at all.
+
+---
+
+## API reference
+
+### `POST /api/transcribe`
+
+`multipart/form-data` (standard) or `application/json` (remote audio).
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `audio` | file | The clip. Required in multipart mode. |
+| `audioUrl` | string | Vercel Blob URL. Required in JSON mode; mutually exclusive with `audio`. |
+| `filename` | string | Optional, improves provider hints. |
+| `engine` | `auto` \| `deepgram` \| `gladia` \| `assemblyai` \| `speechmatics` | Default `auto` (the `ENGINE_ORDER` chain). A pinned engine is tried first, then the rest of the chain. |
+| `fallback` | `true` \| `false` | Default `true`. When `false` and an engine is pinned, only that engine runs. |
+| `language` | ISO-639-1 | `en`, `ar`, `es`, … Omit or `auto` for auto-detection. |
+| `durationSeconds` | number | Optional, used for accurate audio-length reporting. |
+
+Status codes: `200` success · `400` bad request · `402` out of credit ·
+`413` too large · `415` unsupported format · `429` rate limited ·
+`502` the whole chain failed · `503` no engine configured · `504` timeout.
+
+**Examples**
+
+```bash
+# Upload a file
+curl -X POST http://localhost:3000/api/transcribe \
+  -F "audio=@interview.m4a" -F "engine=auto" -F "fallback=true" | jq
+
+# Remote audio (what the studio sends for large files)
+curl -X POST http://localhost:3000/api/transcribe \
+  -H 'content-type: application/json' \
+  -d '{"audioUrl":"https://xxxx.public.blob.vercel-storage.com/clip.webm","engine":"gladia"}' | jq
+```
+
+> Only URLs inside **this project's own** Vercel Blob store are accepted.
+> Arbitrary URLs are rejected with a `400`, because the provider would otherwise
+> fetch whatever we forwarded — turning the route into an SSRF proxy into
+> internal networks and cloud metadata endpoints.
+
+### `GET /api/health`
+
+Reports capability, never secrets: every engine with its key state, position in
+the failover chain, model, accent and whether it accepts a remote URL — plus the
+upload ceilings and which optional features (Blob, usage panel) are live. The UI
+renders the engine picker straight from this, so adding an engine needs no
+client-side change.
+
+### `GET /api/usage`
+
+Per-engine consumption plus whatever each provider will report, and an explicit
+`disclosure` block describing what the numbers are and are not. `404` when
+`ENABLE_USAGE_PANEL=false`. Same-origin only (cross-site `Sec-Fetch-Site` is
+rejected) and rate limited like transcription. See
+[Usage & remaining limits](#usage--remaining-limits).
+
+### `POST /api/blob/upload`
+
+Mints short-lived Vercel Blob client tokens (the token exchange used by direct
+browser uploads). Returns `503` when no Blob store is connected. Guarded by the
+same rate limit as transcription, restricted to audio/video MIME types and the
+audio extensions, with a hard size ceiling baked into the token.
+
+---
+
+## Architecture
+
+```
+app/
+  layout.js                     Fonts, metadata, skip link
+  page.js                       Landing page: hero, studio, comparison, FAQ
+  globals.css                   Tailwind v4 @theme design tokens + keyframes
+  icon.svg                      Favicon
+  api/
+    transcribe/route.js         ⭐ Proxy + smart fallback orchestration
+    blob/upload/route.js        Vercel Blob token exchange (large uploads)
+    health/route.js             Capability probe for the UI
+    usage/route.js              Consumption + remaining-limit report
+
+components/
+  TranscriptionStudio.js        Client orchestrator; owns the request lifecycle
+  AudioSourceCard.js            Upload / record tabs, drop zone, timer, meters
+  EngineControls.js             Engine radio group (auto + N engines), switch, language
+  TranscriptPanel.js            Status, stats, editable output, copy/export
+  UsagePanel.js                 Consumption, remaining balance, data provenance
+  Waveform.js                   Static waveform + live level meter
+  Icons.js                      Inline SVG icon set (no icon dependency)
+
+hooks/
+  useRecorder.js                MediaRecorder: permissions, codecs, pause, meter
+  useAudioSource.js             Object URLs, peak decoding, duration recovery
+
+lib/
+  engines-meta.js               Engine registry (labels, models, accents, usage mode)
+  engines.js                    ⭐ Four provider adapters, error taxonomy
+  url-guard.js                  SSRF-safe URL validation
+  client/api.js                 fetch client + Blob direct upload
+  client/format.js              Formatting, SRT/TXT builders, clipboard
+  server/config.js              Env parsing + serverless-aware defaults
+  server/blob.js                Blob capability + cleanup
+  server/usage.js               Local counters + provider usage APIs
+  server/rate-limit.js          In-process fixed-window limiter
+  server/http.js                Response shapes + credential redaction
+
+tests/
+  transcription.test.mjs        Unit tests (no network)
+  e2e.mjs                       End-to-end, incl. emulated Vercel limits
+  mock-providers.mjs            Scenario-driven provider mocks
+  mock-servers.mjs              Runs the mocks on fixed ports
+```
+
+**Design decisions worth knowing**
+
+- `lib/engines.js` imports no Next.js code and reads no `process.env` — config is
+  injected. That is why the providers are directly unit-testable.
+- Errors carry a machine-readable `code`; the route decides retryability from
+  that code, never from string matching on provider prose.
+- The transcript is *editable*. Users routinely need to fix a name or a number,
+  and a read-only output would force a round trip through the provider.
+- Returned JSON includes the full `attempts` trail, so debugging a fallback in
+  production needs no extra logging.
+
+---
+
+## Testing
+
+```bash
+npm test                       # 47 unit tests: parsing, errors, formats, URL guard
+npm run build && npm run test:e2e   # 33 end-to-end scenarios
+```
+
+The E2E suite boots the **real production build** against mock providers and
+asserts the contract end to end:
+
+- every fallback trigger (`429`, `402`, `401`, `5xx`, empty transcript);
+- the **deep chain**: Deepgram → Gladia → AssemblyAI → Speechmatics, including a
+  third-engine and fourth-engine hand-off, and a non-retryable error that stops
+  the chain instead of burning credit;
+- whole-chain failure returns a structured error naming every engine tried;
+- engine pinning, the `fallback=false` escape hatch, and Speechmatics refusing a
+  remote URL (it ingests bytes only);
+- `/api/usage` reports Deepgram's balance, Speechmatics' batch hours, and says
+  "no API" for the two providers that publish nothing;
+- validation: missing audio, wrong type, oversize, third-party `audioUrl` (SSRF);
+- rate limiting and `Retry-After`;
+- **an emulated Vercel deployment** — `VERCEL=1`, a proxy that enforces the
+  real 4.5 MB body cap, and assertions that a 4.2 MB upload is rejected by our
+  own guard with helpful advice while a 5 MB upload dies at the platform edge
+  (which is precisely why the Blob path exists).
+
+No API keys and no network access are required to run the suite.
+
+To demo the whole pipeline without spending credits:
+
+```bash
+npm run demo                       # terminal 1 — mocks on :8787-:8790
+# terminal 2
+DEEPGRAM_API_KEY=demo-key GLADIA_API_KEY=demo-key \
+ASSEMBLYAI_API_KEY=demo-key SPEECHMATICS_API_KEY=demo-key \
+DEEPGRAM_BASE_URL=http://127.0.0.1:8787/v1/listen \
+GLADIA_BASE_URL=http://127.0.0.1:8788/v2 \
+ASSEMBLYAI_BASE_URL=http://127.0.0.1:8789 \
+SPEECHMATICS_BASE_URL=http://127.0.0.1:8790 \
+npm run dev
+```
+
+The mocks implement the management/usage endpoints too, so the usage panel has
+real shapes to render. Then walk the chain yourself:
+
+```bash
+# Deepgram rate-limited + Gladia down → AssemblyAI answers
+curl -X POST localhost:8787/__scenario -H 'content-type: application/json' -d '{"mode":"rate-limit"}'
+curl -X POST localhost:8788/__scenario -H 'content-type: application/json' -d '{"mode":"server-error"}'
+curl -X POST localhost:3000/api/usage | jq '.engines[] | {engine, local: .local.requests}'
+```
+
+---
+
+## Security notes
+
+- **Keys stay server-side.** Only `/api/transcribe`, `/api/blob/upload` and
+  `/api/health` touch `process.env`; every one is a server route. Nothing is
+  exposed with a `NEXT_PUBLIC_` prefix. The browser only ever calls same-origin
+  paths.
+- **SSRF containment.** `audioUrl` is validated against the exact Vercel Blob
+  hostname pattern, https-only, no credentials, no ports, no fragments, length
+  capped. Arbitrary and internal URLs are rejected before any provider sees them.
+- **Credential redaction.** Anything key-shaped is scrubbed before logging via
+  `redact()`.
+- **Rate limiting** protects provider credits per client IP. It is an
+  in-process fixed window — a courtesy guard on one instance, not a distributed
+  security boundary. For a hard limit, put Redis/Upstash behind
+  `lib/server/rate-limit.js`.
+- **Response headers** include `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`
+  and a `Permissions-Policy` that allows only same-origin microphone access.
+- **This app ships without authentication.** If you deploy it publicly, the
+  rate limit is all that stands between your provider credits and the internet.
+  Add auth (and check the session in `onBeforeGenerateToken` in
+  `app/api/blob/upload/route.js`, as Vercel's docs require) before exposing it.
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause & fix |
+| --- | --- |
+| `503 No speech-to-text engine is configured` | No key is set at all. Add at least one to `.env.local` and **restart** the dev server (env files are read at boot). |
+| `413 FUNCTION_PAYLOAD_TOO_LARGE` | The upload exceeded Vercel's 4.5 MB body cap. Connect a Blob store so large files bypass the function. |
+| `413 … inline upload limit` | Working as designed. Re-import the file (with a Blob store connected it routes through storage) or raise `MAX_UPLOAD_MB`. |
+| `415 Unsupported format` | Convert to MP3/WAV/M4A/WebM/OGG/FLAC/AAC. |
+| `429 Too many transcription requests` | Your own rate limit. Wait for the window or raise `RATE_LIMIT_MAX`. |
+| `402` / `AUTH` in the attempt trail, transcript still returned | The fallback worked. Top up or rotate the primary engine's key to restore it. |
+| `504` / transcript cut off on Vercel | Long audio outran the function budget. Raise `maxDuration` + `FUNCTION_BUDGET_MS` (Pro), or split the file. |
+| Fallback never triggers | Check the switch in the UI (or `ALLOW_CLIENT_FALLBACK_OPTION`), and confirm the failure is a *retryable* code — malformed audio intentionally is not retried. Only engines with a key are in the chain. |
+| Usage panel says "no API for usage" | Correct: Gladia and AssemblyAI publish usage only in their dashboards. Deepgram's card needs a key with management scope; Speechmatics' needs the key for the **same region** as `SPEECHMATICS_BASE_URL`. |
+| Speechmatics returns `Permission Denied` / `Invalid or missing license` | The key belongs to a different region than the base URL. EU: `eu1.asr.api.speechmatics.com`; US: `us1.asr.api.speechmatics.com`. |
+| Microphone does nothing | Browsers require a secure context. `http://localhost` counts; a LAN IP over http does not. |
+| Empty transcript from one engine | Expected behaviour: it hands off to the next engine before reporting failure. |
+
+---
+
+## License
+
+MIT
