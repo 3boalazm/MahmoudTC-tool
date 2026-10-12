@@ -154,6 +154,22 @@ test('every t() key used in the codebase exists in both dictionaries', () => {
   }
 });
 
+test('interpolation placeholders match between languages', () => {
+  const placeholders = (value) => [...String(value).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+
+  const mismatched = [];
+  for (const [key, value] of Object.entries(flatEn)) {
+    if (typeof value !== 'string') continue;
+    const other = flatAr[key];
+    if (typeof other !== 'string') continue;
+    const a = placeholders(value);
+    const b = placeholders(other);
+    if (a.join(',') !== b.join(',')) mismatched.push(`${key}: en{${a}} vs ar{${b}}`);
+  }
+
+  assert.deepEqual(mismatched, [], `placeholder drift:\n${mismatched.join('\n')}`);
+});
+
 /* --------------------------------------------------------------- translator */
 
 test('the translator resolves dot paths and interpolates', () => {

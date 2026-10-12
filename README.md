@@ -669,7 +669,7 @@ tests/
 ## Testing
 
 ```bash
-npm test                       # 74 unit tests: parsing, errors, i18n parity, theme, PWA
+npm test                       # 75 unit tests: parsing, errors, i18n parity, theme, PWA
 npm run build && npm run test:e2e   # 39 end-to-end scenarios
 ```
 
