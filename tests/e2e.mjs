@@ -100,6 +100,9 @@ async function startApp({
   const port = 4000 + Math.floor(Math.random() * 900);
   const baseEnv = {
     NODE_ENV: 'production',
+    // The scenarios below were written around Deepgram as the primary engine;
+    // pin it so they stay deterministic whatever the shipped default is.
+    ENGINE_ORDER: 'deepgram,gladia,assemblyai,speechmatics',
     DEEPGRAM_API_KEY: 'test-deepgram-key',
     GLADIA_API_KEY: 'test-gladia-key',
     ASSEMBLYAI_API_KEY: 'test-assemblyai-key',

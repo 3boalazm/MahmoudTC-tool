@@ -64,7 +64,6 @@ export function useInstallPrompt() {
     const onBeforeInstall = (event) => {
       event.preventDefault();
       setDeferred(event);
-      setReady(true);
     };
     const onInstalled = () => {
       setJustInstalled(true);
