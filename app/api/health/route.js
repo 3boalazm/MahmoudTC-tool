@@ -7,32 +7,45 @@
  * Reports *which* credentials exist — never the values themselves.
  */
 
+import { ACCENT_CLASSES, ENGINES } from '@/lib/engines-meta';
 import { isBlobEnabled } from '@/lib/server/blob';
-import { engineAvailability, serverConfig } from '@/lib/server/config';
+import { availableEngineOrder, engineAvailability, serverConfig } from '@/lib/server/config';
 import { jsonResponse } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export function GET() {
-  const engines = engineAvailability();
+  const availability = engineAvailability();
+  const order = availableEngineOrder();
   const blobEnabled = isBlobEnabled();
 
   return jsonResponse({
     ok: true,
-    configured: engines.deepgram || engines.gladia,
-    engines: {
-      deepgram: {
-        available: engines.deepgram,
-        role: 'primary',
-        model: serverConfig.deepgram.model,
-      },
-      gladia: {
-        available: engines.gladia,
-        role: 'fallback',
-        model: 'solaria-1',
-      },
-    },
+    configured: order.length > 0,
+    /** Full description of every supported engine, in failover order. */
+    engines: ENGINES.map((engine) => ({
+      id: engine.id,
+      label: engine.label,
+      available: availability[engine.id],
+      // An empty ASSEMBLYAI_MODEL means "use the account default", so fall back
+      // to the marketing name from the registry rather than rendering nothing.
+      model: serverConfig[engine.id]?.model || engine.model,
+      configuredModel: serverConfig[engine.id]?.model || null,
+      blurb: engine.blurb,
+      description: engine.description,
+      supportsRemoteUrl: engine.supportsRemoteUrl,
+      docsUrl: engine.docsUrl,
+      dashboardUrl: engine.dashboardUrl,
+      keyVar: engine.keyVar,
+      usage: engine.usage,
+      accent: engine.accent,
+      // Position in the chain; null when this deployment has no key for it.
+      position: order.indexOf(engine.id) >= 0 ? order.indexOf(engine.id) + 1 : null,
+      role: order.indexOf(engine.id) === 0 ? 'primary' : order.includes(engine.id) ? 'fallback' : null,
+    })),
+    engineOrder: order,
+    accents: ACCENT_CLASSES,
     limits: {
       /** Files at or below this size are streamed through the API route. */
       maxUploadMb: serverConfig.upload.maxMb,
@@ -57,6 +70,7 @@ export function GET() {
       autoFallback: true,
       clientFallbackToggle: serverConfig.allowClientFallbackOption,
       fallbackOnEmptyTranscript: serverConfig.fallbackOnEmptyTranscript,
+      usagePanel: serverConfig.usage.enabled,
     },
     runtime: {
       platform: serverConfig.runtime.isVercel ? 'vercel' : 'self-hosted',

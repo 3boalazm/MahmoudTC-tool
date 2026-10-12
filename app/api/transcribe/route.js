@@ -24,11 +24,15 @@ import {
   describeCode,
   estimateAudioSeconds,
   httpStatusFor,
+  transcribeWithAssemblyAI,
   transcribeWithDeepgram,
   transcribeWithGladia,
+  transcribeWithSpeechmatics,
 } from '@/lib/engines';
+import { ENGINE_MAP, normaliseEngineId } from '@/lib/engines-meta';
 import { deleteBlob, isBlobEnabled, isOwnBlobUrl } from '@/lib/server/blob';
 import { engineAvailability, hasAnyEngine, serverConfig } from '@/lib/server/config';
+import { recordAttempt } from '@/lib/server/usage';
 import { checkRateLimit, clientIdentifier } from '@/lib/server/rate-limit';
 import { errorResponse, jsonResponse, redact } from '@/lib/server/http';
 
@@ -109,7 +113,7 @@ export async function POST(request) {
   /* ---------------------------------------------------------------------- */
   /* 4. Work out which engines to attempt, in order                         */
   /* ---------------------------------------------------------------------- */
-  const requestedEngine = normaliseEngine(getField('engine'));
+  const requestedEngine = normaliseEngineId(getField('engine'));
   const wantsFallback =
     !serverConfig.allowClientFallbackOption ||
     readBoolean(getField('fallback'), true);
@@ -144,6 +148,14 @@ export async function POST(request) {
 
       if (result.text) {
         attempts.push(successEntry(engine, result));
+        recordAttempt(engine, {
+          ok: true,
+          audioSeconds:
+            result.duration ??
+            (Number.isFinite(clientDuration) && clientDuration > 0 ? clientDuration : null),
+          elapsedMs: result.elapsedMs ?? null,
+          usedFallback: plan.indexOf(engine) > 0,
+        });
         await releaseSource(audioUrl);
         return jsonResponse(
           buildSuccessBody({
@@ -169,6 +181,7 @@ export async function POST(request) {
         },
       );
       attempts.push(failureEntry(engine, empty));
+      recordAttempt(engine, { ok: false, code: ERROR_CODES.EMPTY_TRANSCRIPT });
       lastError = empty;
 
       if (nextEngine && serverConfig.fallbackOnEmptyTranscript) {
@@ -187,6 +200,7 @@ export async function POST(request) {
             );
 
       attempts.push(failureEntry(engine, failure));
+      recordAttempt(engine, { ok: false, code: failure.code });
       lastError = failure;
 
       log(`[transcribe] ${engine} failed (${failure.code}) — ${failure.message}`);
@@ -385,52 +399,87 @@ async function releaseSource(audioUrl) {
   await deleteBlob(audioUrl);
 }
 
+/**
+ * Dispatch to the right provider adapter.
+ *
+ * Every adapter receives the same normalised input — either bytes or a remote
+ * URL — and returns the same normalised output, so adding an engine is a matter
+ * of adding one case here plus one entry in `lib/engines-meta.js`.
+ */
 async function runEngine(engine, audio, { language }) {
-  if (engine === 'deepgram') {
-    return transcribeWithDeepgram(audio, {
-      apiKey: serverConfig.deepgram.apiKey,
-      model: serverConfig.deepgram.model,
-      timeoutMs: serverConfig.deepgram.timeoutMs,
-      baseUrl: serverConfig.deepgram.baseUrl,
-      language,
-    });
+  const config = serverConfig[engine] ?? {};
+
+  switch (engine) {
+    case 'deepgram':
+      return transcribeWithDeepgram(audio, {
+        apiKey: config.apiKey,
+        model: config.model,
+        timeoutMs: config.timeoutMs,
+        baseUrl: config.baseUrl,
+        language,
+      });
+    case 'gladia':
+      return transcribeWithGladia(audio, {
+        apiKey: config.apiKey,
+        timeoutMs: config.timeoutMs,
+        pollTimeoutMs: config.pollTimeoutMs,
+        pollIntervalMs: config.pollIntervalMs,
+        baseUrl: config.baseUrl,
+        language,
+      });
+    case 'assemblyai':
+      return transcribeWithAssemblyAI(audio, {
+        apiKey: config.apiKey,
+        model: config.model,
+        timeoutMs: config.timeoutMs,
+        pollTimeoutMs: config.pollTimeoutMs,
+        pollIntervalMs: config.pollIntervalMs,
+        baseUrl: config.baseUrl,
+        language,
+      });
+    case 'speechmatics':
+      return transcribeWithSpeechmatics(audio, {
+        apiKey: config.apiKey,
+        model: config.model,
+        timeoutMs: config.timeoutMs,
+        pollTimeoutMs: config.pollTimeoutMs,
+        pollIntervalMs: config.pollIntervalMs,
+        baseUrl: config.baseUrl,
+        language,
+      });
+    default:
+      throw new TranscriptionError(
+        ERROR_CODES.MISSING_KEY,
+        `Unknown engine "${engine}".`,
+        { provider: engine, retryable: false },
+      );
   }
-  return transcribeWithGladia(audio, {
-    apiKey: serverConfig.gladia.apiKey,
-    timeoutMs: serverConfig.gladia.timeoutMs,
-    pollTimeoutMs: serverConfig.gladia.pollTimeoutMs,
-    pollIntervalMs: serverConfig.gladia.pollIntervalMs,
-    baseUrl: serverConfig.gladia.baseUrl,
-    language,
-  });
 }
 
 /**
  * Engine order for this request.
- * - `auto`      → Deepgram first (preferred), Gladia as the safety net.
- * - `deepgram`  → Deepgram only; Gladia only if fallback is switched on and the
- *                 caller did not explicitly pin a single engine.
- * - `gladia`    → Gladia first, Deepgram as the safety net.
+ *
+ * - `auto`            → the configured failover chain (`ENGINE_ORDER`), filtered
+ *                       down to the engines that actually have a key.
+ * - a pinned engine   → that engine first, then the rest of the chain as a
+ *                       safety net — unless the caller turned fallback off, in
+ *                       which case only the pinned engine runs.
+ *
+ * With four engines this means a request can survive three consecutive provider
+ * outages (for example: Deepgram rate-limited → Gladia out of credit →
+ * AssemblyAI 5xx → Speechmatics) before the user sees an error.
  */
 function buildEnginePlan({ requestedEngine, wantsFallback, availability }) {
-  const order =
-    requestedEngine === 'gladia'
-      ? ['gladia', 'deepgram']
-      : ['deepgram', 'gladia'];
+  const chain = serverConfig.engineOrder.filter((engine) => availability[engine]);
+  if (!chain.length) return [];
 
-  const available = order.filter((engine) => availability[engine]);
-  if (!available.length) return [];
+  if (requestedEngine === 'auto') return chain;
 
-  // An explicit engine choice with fallback disabled means "this engine only".
-  if (requestedEngine !== 'auto' && !wantsFallback) {
-    return available.includes(requestedEngine) ? [requestedEngine] : [];
-  }
-  return available;
-}
+  if (!availability[requestedEngine]) return [];
+  if (!wantsFallback) return [requestedEngine];
 
-function normaliseEngine(value) {
-  const engine = String(value ?? '').trim().toLowerCase();
-  return ['deepgram', 'gladia', 'auto'].includes(engine) ? engine : 'auto';
+  // Pinned engine first, then everything else in the configured order.
+  return [requestedEngine, ...chain.filter((engine) => engine !== requestedEngine)];
 }
 
 function normaliseLanguage(value) {
@@ -548,20 +597,22 @@ function buildFailureMessage({ code, lastError, attempts, bothTried, requestedEn
     });
   }
 
-  const engines = [...new Set(attempts.map((attempt) => attempt.engine))].join(' and ');
+  // Name every engine that was tried, so a 4-deep chain reads honestly.
+  const engines = [...new Set(attempts.map((attempt) => attempt.engine))];
   const reason = lastError?.userMessage || describeCode(code);
 
-  return bothTried
-    ? `Both transcription engines failed (${engines}). ${reason}`
-    : `Transcription failed. ${reason}`;
+  if (!bothTried || engines.length < 2) {
+    return `Transcription failed. ${reason}`;
+  }
+
+  const label = engines.length === 2 ? 'Both engines' : `All ${engines.length} engines`;
+  return `${label} failed (${engines.join(', ')}). ${reason}`;
 }
 
 function describeUnavailableSelection({ requestedEngine, availability }) {
-  if (requestedEngine === 'deepgram' && !availability.deepgram) {
-    return 'The Deepgram engine is selected but DEEPGRAM_API_KEY is not configured on this deployment.';
-  }
-  if (requestedEngine === 'gladia' && !availability.gladia) {
-    return 'The Gladia engine is selected but GLADIA_API_KEY is not configured on this deployment.';
+  const meta = ENGINE_MAP[requestedEngine];
+  if (meta && !availability[requestedEngine]) {
+    return `The ${meta.label} engine is selected but ${meta.keyVar} is not configured on this deployment.`;
   }
   return 'No speech-to-text engine is available for this request.';
 }

@@ -9,16 +9,33 @@ import test from 'node:test';
 import {
   buildDeepgramQuery,
   buildMultipartBody,
+  buildMultipartForm,
   estimateAudioSeconds,
   extractProviderMessage,
   httpStatusFor,
   TranscriptionError,
   ERROR_CODES,
+  normaliseAudioSource,
+  parseAssemblyAITranscript,
   parseDeepgramResponse,
   parseGladiaResult,
+  parseSpeechmaticsTranscript,
+  summariseSpeechmaticsUsage,
+  transcribeWithAssemblyAI,
   transcribeWithDeepgram,
   transcribeWithGladia,
+  transcribeWithSpeechmatics,
 } from '../lib/engines.js';
+
+import {
+  accentFor,
+  DEFAULT_ENGINE_ORDER,
+  ENGINE_IDS,
+  ENGINE_MAP,
+  engineLabel,
+  engineModelLabel,
+  normaliseEngineId,
+} from '../lib/engines-meta.js';
 
 import { isBlobStorageUrl, sanitiseUrl, filenameFromUrl } from '../lib/url-guard.js';
 
@@ -409,4 +426,356 @@ test('providers reject a source with neither bytes nor a URL', async () => {
   await assert.rejects(() => transcribeWithGladia({}, { apiKey: 'k' }), {
     code: 'BAD_REQUEST',
   });
+});
+
+/* --------------------------------------------------------------- engines meta */
+
+test('the engine registry describes four engines in failover order', () => {
+  assert.deepEqual(ENGINE_IDS, ['deepgram', 'gladia', 'assemblyai', 'speechmatics']);
+  assert.deepEqual(DEFAULT_ENGINE_ORDER, ENGINE_IDS);
+
+  for (const id of ENGINE_IDS) {
+    const engine = ENGINE_MAP[id];
+    assert.ok(engine.label, `${id} needs a label`);
+    assert.ok(engine.keyVar, `${id} needs an env var name`);
+    assert.match(engine.accent, /^(iris|mint|amber|rose)$/);
+    assert.ok(engine.dashboardUrl.startsWith('https://'), `${id} needs a dashboard link`);
+  }
+
+  // Speechmatics ingests bytes only, which the picker surfaces to the user.
+  assert.equal(ENGINE_MAP.speechmatics.supportsRemoteUrl, false);
+  assert.equal(ENGINE_MAP.deepgram.supportsRemoteUrl, true);
+  assert.equal(ENGINE_MAP.deepgram.keyVar, 'DEEPGRAM_API_KEY');
+  assert.equal(ENGINE_MAP.speechmatics.keyVar, 'SPEECHMATICS_API_KEY');
+});
+
+test('normaliseEngineId accepts the known engines and defaults everything else', () => {
+  for (const id of ENGINE_IDS) assert.equal(normaliseEngineId(id), id);
+  assert.equal(normaliseEngineId('  SPEECHMATICS '), 'speechmatics');
+  assert.equal(normaliseEngineId('auto'), 'auto');
+  assert.equal(normaliseEngineId('whisper'), 'auto');
+  assert.equal(normaliseEngineId(undefined), 'auto');
+});
+
+test('engine labels and accents resolve for every engine', () => {
+  assert.equal(engineLabel('assemblyai'), 'AssemblyAI');
+  assert.equal(engineLabel('speechmatics'), 'Speechmatics');
+  assert.equal(engineLabel('nope'), '—');
+  assert.equal(engineModelLabel('speechmatics', 'enhanced'), 'Speechmatics enhanced');
+  assert.equal(engineModelLabel('deepgram'), 'Deepgram Nova-2');
+  // accentFor returns the ready-made Tailwind class bundle for an engine.
+  assert.equal(accentFor('gladia').dot, 'bg-mint-400');
+  assert.equal(accentFor('speechmatics').text, 'text-rose-400');
+  assert.equal(accentFor('unknown-engine').dot, 'bg-iris-400');
+});
+
+/* ----------------------------------------------------------- multipart form */
+
+test('buildMultipartForm mixes text and file fields into one body', () => {
+  const { body, contentType } = buildMultipartForm([
+    { name: 'config', value: '{"type":"transcription"}' },
+    { name: 'data_file', value: Buffer.from('RIFF'), filename: 'clip.wav', contentType: 'audio/wav' },
+  ]);
+
+  assert.match(contentType, /^multipart\/form-data; boundary=----sttstudio/);
+  const text = body.toString('utf8');
+  assert.match(text, /name="config"\r\n\r\n\{"type":"transcription"\}/);
+  assert.match(text, /name="data_file"; filename="clip\.wav"/);
+  assert.match(text, /Content-Type: audio\/wav/);
+  assert.ok(text.trimEnd().endsWith('--'), 'body must be terminated');
+});
+
+/* ---------------------------------------------------------------- assemblyai */
+
+test('parseAssemblyAITranscript converts milliseconds to seconds', () => {
+  const result = parseAssemblyAITranscript({
+    text: 'Third engine transcript.',
+    language_code: 'en_us',
+    audio_duration: 3.5,
+    confidence: 0.94,
+    words: [
+      { text: 'Third', start: 0, end: 700, confidence: 0.95 },
+      { text: 'engine', start: 700, end: 1200, confidence: 0.93 },
+    ],
+    utterances: [{ text: 'Third engine transcript.', start: 0, end: 1600, speaker: 'A' }],
+  });
+
+  assert.equal(result.text, 'Third engine transcript.');
+  assert.equal(result.words[1].start, 0.7);
+  assert.equal(result.words[1].end, 1.2);
+  assert.equal(result.segments[0].end, 1.6);
+  assert.equal(result.language, 'en');
+  assert.equal(result.duration, 3.5);
+  assert.equal(result.confidence, 0.94);
+});
+
+test('parseAssemblyAITranscript falls back to utterances and averages confidence', () => {
+  const result = parseAssemblyAITranscript({
+    utterances: [
+      { text: 'First part.', start: 0, end: 1000 },
+      { text: 'Second part.', start: 1000, end: 2000 },
+    ],
+    words: [
+      { text: 'First', start: 0, end: 500, confidence: 0.8 },
+      { text: 'part', start: 500, end: 1000, confidence: 0.6 },
+    ],
+  });
+
+  assert.equal(result.text, 'First part. Second part.');
+  assert.equal(result.words.length, 2);
+  assert.ok(Math.abs(result.confidence - 0.7) < 0.001);
+});
+
+test('transcribeWithAssemblyAI uploads bytes then polls the transcript', async () => {
+  const calls = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const href = String(url);
+    calls.push({ href, init });
+
+    if (href.endsWith('/upload')) {
+      return new Response(JSON.stringify({ upload_url: 'https://cdn.assemblyai.local/1' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (href.endsWith('/transcript')) {
+      return new Response(JSON.stringify({ id: 'aai-1', status: 'queued' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(
+      JSON.stringify({
+        id: 'aai-1',
+        status: 'completed',
+        text: 'Done.',
+        language_code: 'en',
+        words: [],
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
+
+  try {
+    const result = await transcribeWithAssemblyAI(
+      { buffer: Buffer.from('audio'), filename: 'clip.wav', contentType: 'audio/wav' },
+      { apiKey: 'test-key', baseUrl: 'https://aai.test/v2', pollIntervalMs: 1 },
+    );
+
+    assert.equal(result.text, 'Done.');
+    assert.equal(result.engine, 'assemblyai');
+    assert.deepEqual(
+      calls.map((call) => call.href.replace('https://aai.test/v2', '')),
+      ['/upload', '/transcript', '/transcript/aai-1'],
+    );
+    // The Authorization header is the raw key, and no speech_models is sent
+    // unless ASSEMBLYAI_MODEL was configured.
+    assert.equal(calls[0].init.headers.authorization, 'test-key');
+    const jobBody = JSON.parse(calls[1].init.body);
+    assert.equal(jobBody.audio_url, 'https://cdn.assemblyai.local/1');
+    assert.equal(jobBody.speech_models, undefined);
+    assert.equal(jobBody.language_detection, true);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('transcribeWithAssemblyAI skips the upload when handed a URL', async () => {
+  const calls = [];
+  let jobBody = null;
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const href = String(url);
+    calls.push(href);
+    if (href.endsWith('/transcript')) {
+      jobBody = JSON.parse(init.body);
+      return new Response(JSON.stringify({ id: 'aai-2', status: 'queued' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ id: 'aai-2', status: 'completed', text: 'Hi.' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await transcribeWithAssemblyAI(
+      { url: 'https://abc.public.blob.vercel-storage.com/clip.webm' },
+      { apiKey: 'k', baseUrl: 'https://aai.test/v2', model: 'universal-3-pro', pollIntervalMs: 1 },
+    );
+
+    assert.ok(!calls.some((href) => href.endsWith('/upload')), 'must not re-upload remote audio');
+    assert.equal(calls.length, 2, 'create job + poll');
+    assert.equal(jobBody.audio_url, 'https://abc.public.blob.vercel-storage.com/clip.webm');
+    // An explicitly configured model is forwarded; the lib still exposes it.
+    assert.deepEqual(jobBody.speech_models, ['universal-3-pro']);
+    assert.equal(result.model, 'universal-3-pro');
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+/* -------------------------------------------------------------- speechmatics */
+
+test('parseSpeechmaticsTranscript rebuilds text from words and punctuation', () => {
+  const result = parseSpeechmaticsTranscript({
+    job: { id: 'sm-1', duration: 3.5 },
+    metadata: {
+      transcription_config: { language: 'en', model: 'enhanced' },
+      language_pack_info: { word_delimiter: ' ' },
+    },
+    results: [
+      { type: 'word', start_time: 0, end_time: 0.4, alternatives: [{ content: 'Fourth', confidence: 0.9 }] },
+      { type: 'word', start_time: 0.4, end_time: 0.9, alternatives: [{ content: 'engine', confidence: 0.8 }] },
+      {
+        type: 'punctuation',
+        start_time: 0.9,
+        end_time: 0.9,
+        attaches_to: 'previous',
+        alternatives: [{ content: '.', confidence: 1 }],
+      },
+    ],
+  });
+
+  assert.equal(result.text, 'Fourth engine.');
+  assert.equal(result.words.length, 2);
+  assert.equal(result.words[1].end, 0.9);
+  assert.equal(result.language, 'en');
+  assert.ok(Math.abs(result.confidence - 0.85) < 0.001);
+  assert.equal(result.segments[0].end, 0.9, 'segment timing covers the last word');
+});
+
+test('parseSpeechmaticsTranscript honours a punctuation mark attached to the next word', () => {
+  const result = parseSpeechmaticsTranscript({
+    metadata: { language_pack_info: { word_delimiter: ' ' } },
+    results: [
+      { type: 'punctuation', attaches_to: 'next', alternatives: [{ content: '"' }] },
+      { type: 'word', start_time: 0, end_time: 1, alternatives: [{ content: 'Quoted', confidence: 0.9 }] },
+      { type: 'word', start_time: 1, end_time: 2, alternatives: [{ content: 'word', confidence: 0.9 }] },
+      { type: 'punctuation', attaches_to: 'previous', alternatives: [{ content: '"' }] },
+    ],
+  });
+
+  assert.equal(result.text, '"Quoted word"');
+});
+
+test('parseSpeechmaticsTranscript respects a language with no word delimiter', () => {
+  const result = parseSpeechmaticsTranscript({
+    metadata: { language_pack_info: { word_delimiter: '' } },
+    results: [
+      { type: 'word', start_time: 0, end_time: 1, alternatives: [{ content: 'こんにちは', confidence: 0.9 }] },
+      { type: 'word', start_time: 1, end_time: 2, alternatives: [{ content: '世界', confidence: 0.9 }] },
+    ],
+  });
+
+  assert.equal(result.text, 'こんにちは世界');
+});
+
+test('transcribeWithSpeechmatics sends a multipart job and polls it', async () => {
+  const calls = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const href = String(url);
+    calls.push({ href, init });
+
+    if (href.endsWith('/jobs/')) {
+      assert.match(init.headers['Content-Type'], /^multipart\/form-data; boundary=/);
+      const body = init.body.toString('utf8');
+      assert.match(body, /name="config"/);
+      assert.match(body, /"transcription_config"/);
+      assert.match(body, /name="data_file"; filename="clip\.wav"/);
+      return new Response(JSON.stringify({ id: 'sm-1', status: 'running' }), {
+        status: 201,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (/\/jobs\/sm-1$/.test(href)) {
+      // Speechmatics nests the status under `job`.
+      return new Response(JSON.stringify({ job: { id: 'sm-1', status: 'done' } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(
+      JSON.stringify({
+        metadata: { language_pack_info: { word_delimiter: ' ' } },
+        results: [
+          { type: 'word', start_time: 0, end_time: 0.5, alternatives: [{ content: 'Hello', confidence: 0.9 }] },
+        ],
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
+
+  try {
+    const result = await transcribeWithSpeechmatics(
+      { buffer: Buffer.from('RIFF'), filename: 'clip.wav', contentType: 'audio/wav' },
+      { apiKey: 'k', baseUrl: 'https://sm.test/v2', language: 'en', pollIntervalMs: 1 },
+    );
+
+    assert.equal(result.text, 'Hello');
+    assert.equal(result.engine, 'speechmatics');
+    assert.equal(result.model, 'enhanced');
+    assert.equal(calls[0].init.headers.Authorization, 'Bearer k');
+    assert.match(calls[2].href, /\/jobs\/sm-1\/transcript\?format=json-v2$/);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('transcribeWithSpeechmatics refuses a URL it cannot read', async () => {
+  await assert.rejects(
+    () =>
+      transcribeWithSpeechmatics(
+        { url: 'https://abc.public.blob.vercel-storage.com/clip.webm' },
+        { apiKey: 'k', baseUrl: 'https://sm.test/v2' },
+      ),
+    (error) => {
+      assert.equal(error.code, 'BAD_REQUEST');
+      assert.equal(error.provider, 'speechmatics');
+      assert.match(error.userMessage, /does not accept/i);
+      return true;
+    },
+  );
+});
+
+test('summariseSpeechmaticsUsage totals only transcription rows', () => {
+  const summary = summariseSpeechmaticsUsage({
+    since: '2026-01-01',
+    until: '2026-01-31',
+    summary: [
+      { mode: 'batch', type: 'transcription', language: 'en', operating_point: 'enhanced', count: 4, duration_hrs: 0.25 },
+      { mode: 'batch', type: 'transcription', language: 'ar', operating_point: 'enhanced', count: 1, duration_hrs: 0.5 },
+      { mode: 'batch', type: 'alignment', language: 'en', count: 9, duration_hrs: 9 },
+    ],
+  });
+
+  assert.equal(summary.jobs, 5);
+  assert.equal(summary.hours, 0.75);
+  assert.equal(summary.breakdown.length, 2);
+  assert.equal(summary.breakdown[1].language, 'ar');
+  assert.equal(summary.since, '2026-01-01');
+});
+
+test('normaliseAudioSource tells bytes and urls apart', () => {
+  const fromBytes = normaliseAudioSource(
+    { buffer: Buffer.from('x'), contentType: 'audio/wav', filename: 'a.wav' },
+    'deepgram',
+  );
+  assert.equal(fromBytes.mode, 'buffer');
+
+  const fromUrl = normaliseAudioSource({ url: 'https://abc.public.blob.vercel-storage.com/x' }, 'deepgram');
+  assert.equal(fromUrl.mode, 'url');
+});
+
+test('every engine refuses a source with neither bytes nor a URL', async () => {
+  for (const [label, call] of [
+    ['assemblyai', () => transcribeWithAssemblyAI({}, { apiKey: 'k' })],
+    ['speechmatics', () => transcribeWithSpeechmatics({}, { apiKey: 'k' })],
+  ]) {
+    await assert.rejects(call, { code: 'BAD_REQUEST' }, `${label} should reject an empty source`);
+  }
 });

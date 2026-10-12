@@ -3,13 +3,15 @@
  * ---------------------------------------------------------------------------
  * End-to-end verification of the real request path:
  *
- *   HTTP client → `next start` → /api/transcribe → mock Deepgram / mock Gladia
+ *   HTTP client → `next start` → /api/transcribe → mock Deepgram / Gladia /
+ *   AssemblyAI / Speechmatics
  *
  * It boots the production build with fake-but-valid-looking keys and mock
  * provider endpoints, then asserts the documented fallback contract:
- *   429, 402, 401, 5xx and empty transcripts must hand off to the fallback
- *   engine; both-failed must produce a structured error; bad requests must be
- *   rejected before either engine is called.
+ *   429, 402, 401, 5xx and empty transcripts must hand off to the next engine;
+ *   the whole chain failing must produce a structured error; bad requests must
+ *   be rejected before any engine is called; /api/usage must report per-engine
+ *   consumption without inventing figures a provider does not expose.
  */
 
 import { spawn } from 'node:child_process';
@@ -18,7 +20,12 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { startDeepgramMock, startGladiaMock } from './mock-providers.mjs';
+import {
+  startAssemblyAIMock,
+  startDeepgramMock,
+  startGladiaMock,
+  startSpeechmaticsMock,
+} from './mock-providers.mjs';
 
 /** Vercel rejects any serverless request body above this. */
 const VERCEL_BODY_LIMIT = 4.5 * 1024 * 1024;
@@ -81,17 +88,33 @@ async function waitForServer(url, timeoutMs = 40_000) {
   throw new Error(`Server at ${url} did not become ready within ${timeoutMs}ms`);
 }
 
-async function startApp({ deepgramBase, gladiaBase, extraEnv = {}, simulateVercel = false, omitEnv = [] }) {
+async function startApp({
+  deepgramBase,
+  gladiaBase,
+  assemblyaiBase,
+  speechmaticsBase,
+  extraEnv = {},
+  simulateVercel = false,
+  omitEnv = [],
+}) {
   const port = 4000 + Math.floor(Math.random() * 900);
   const baseEnv = {
     NODE_ENV: 'production',
     DEEPGRAM_API_KEY: 'test-deepgram-key',
     GLADIA_API_KEY: 'test-gladia-key',
+    ASSEMBLYAI_API_KEY: 'test-assemblyai-key',
+    SPEECHMATICS_API_KEY: 'test-speechmatics-key',
     DEEPGRAM_BASE_URL: deepgramBase,
     GLADIA_BASE_URL: gladiaBase,
+    ASSEMBLYAI_BASE_URL: assemblyaiBase,
+    SPEECHMATICS_BASE_URL: speechmaticsBase,
     DEEPGRAM_TIMEOUT_MS: '8000',
     GLADIA_POLL_INTERVAL_MS: '150',
     GLADIA_POLL_TIMEOUT_MS: '8000',
+    ASSEMBLYAI_POLL_INTERVAL_MS: '150',
+    ASSEMBLYAI_POLL_TIMEOUT_MS: '8000',
+    SPEECHMATICS_POLL_INTERVAL_MS: '150',
+    SPEECHMATICS_POLL_TIMEOUT_MS: '8000',
     MAX_UPLOAD_MB: '2',
     RATE_LIMIT_MAX: '500',
     ...extraEnv,
@@ -315,38 +338,66 @@ process.on('SIGINT', async () => {
 });
 
 /** Point each mock at a scenario, waiting until the mock acknowledges it. */
-async function setModes({ deepgram = 'ok', gladia = 'ok' } = {}) {
+async function setModes({
+  deepgram = 'ok',
+  gladia = 'ok',
+  assemblyai = 'ok',
+  speechmatics = 'ok',
+} = {}) {
   await deepgramMock.setMode(deepgram);
   await gladiaMock.setMode(gladia);
+  await assemblyaiMock.setMode(assemblyai);
+  await speechmaticsMock.setMode(speechmatics);
 }
 
 /* ---------------------------------------------------------------------- main */
 
 const deepgramMock = await startDeepgramMock();
 const gladiaMock = await startGladiaMock();
+const assemblyaiMock = await startAssemblyAIMock();
+const speechmaticsMock = await startSpeechmaticsMock();
 
 if (!existsSync(path.join(root, '.next', 'BUILD_ID'))) {
   console.error('\nNo production build found. Run `npm run build` first.\n');
-  await Promise.all([deepgramMock.close(), gladiaMock.close()]);
+  await Promise.all([
+    deepgramMock.close(),
+    gladiaMock.close(),
+    assemblyaiMock.close(),
+    speechmaticsMock.close(),
+  ]);
   process.exit(1);
 }
 
-console.log(`\nMocks ready — deepgram ${deepgramMock.url}, gladia ${gladiaMock.url}`);
+console.log(
+  `\nMocks ready — deepgram ${deepgramMock.url}, gladia ${gladiaMock.url}, ` +
+    `assemblyai ${assemblyaiMock.url}, speechmatics ${speechmaticsMock.url}`,
+);
 const app = await startApp({
   deepgramBase: `${deepgramMock.url}/v1/listen`,
   gladiaBase: `${gladiaMock.url}/v2`,
+  assemblyaiBase: assemblyaiMock.url,
+  speechmaticsBase: speechmaticsMock.url,
 });
 console.log(`App ready at ${app.base}\n`);
 
 console.log('Health & validation');
-await scenario('GET /api/health reports both engines as available', async () => {
+await scenario('GET /api/health reports every engine as available, in order', async () => {
   const response = await fetch(`${app.base}/api/health`);
   const body = await response.json();
   assert.equal(response.status, 200);
-  assert.equal(body.engines.deepgram.available, true);
-  assert.equal(body.engines.gladia.available, true);
-  assert.equal(body.engines.deepgram.model, 'nova-2');
+
+  const ids = body.engines.map((engine) => engine.id);
+  assert.deepEqual(ids, ['deepgram', 'gladia', 'assemblyai', 'speechmatics']);
+  for (const engine of body.engines) {
+    assert.equal(engine.available, true, `${engine.id} should be keyed`);
+  }
+  assert.deepEqual(body.engineOrder, ids);
+  assert.equal(body.engines[0].model, 'nova-2');
+  assert.equal(body.engines[0].role, 'primary');
+  assert.equal(body.engines[3].model, 'enhanced');
+  assert.equal(body.engines[3].supportsRemoteUrl, false);
   assert.equal(body.limits.maxUploadMb, 2);
+  assert.equal(body.features.usagePanel, true);
 });
 
 await scenario('rejects a request with no audio field', async () => {
@@ -418,20 +469,145 @@ for (const [label, mode, expectedCode] of [
   });
 }
 
+console.log('\nDeeper failover chain');
+await scenario('walks past Gladia to AssemblyAI when the first two fail', async () => {
+  await setModes({ deepgram: 'rate-limit', gladia: 'server-error', assemblyai: 'ok' });
+  const { status, body } = await transcribe(app.base);
+  assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(body)}`);
+  assert.equal(body.engine, 'assemblyai');
+  assert.equal(body.fallbackUsed, true);
+  assert.equal(body.text, 'Third engine transcript.');
+  assert.deepEqual(
+    body.attempts.map((attempt) => attempt.engine),
+    ['deepgram', 'gladia', 'assemblyai'],
+  );
+  assert.equal(body.attempts[0].code, 'RATE_LIMITED');
+  assert.equal(body.attempts[1].code, 'SERVER_ERROR');
+  assert.equal(body.attempts[2].ok, true);
+  // AssemblyAI reports milliseconds; the parser must normalise to seconds.
+  assert.deepEqual(body.words[1].start, 0.7);
+  assert.equal(body.language, 'en');
+});
+
+await scenario('reaches Speechmatics as the last engine in the chain', async () => {
+  await setModes({
+    deepgram: 'auth',
+    gladia: 'upload-error',
+    assemblyai: 'rate-limit',
+    speechmatics: 'ok',
+  });
+  const { status, body } = await transcribe(app.base);
+  assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(body)}`);
+  assert.equal(body.engine, 'speechmatics');
+  assert.equal(body.model, 'enhanced');
+  assert.equal(body.fallbackUsed, true);
+  assert.equal(body.text, 'Fourth engine.');
+  assert.equal(body.attempts.length, 4);
+  assert.equal(body.attempts[3].ok, true);
+});
+
+await scenario('a non-retryable provider error stops the chain instead of burning credit', async () => {
+  await setModes({ deepgram: 'ok', gladia: 'ok', assemblyai: 'job-error', speechmatics: 'ok' });
+  const { status, body } = await transcribe(app.base, { fields: { engine: 'assemblyai' } });
+  assert.equal(status, 502);
+  assert.equal(body.error.code, 'PROVIDER_ERROR');
+  assert.equal(body.error.attempts.length, 1, 'must not hand off bad audio to the next engine');
+  assert.equal(body.error.attempts[0].engine, 'assemblyai');
+  assert.equal(body.error.attempts[0].retryable, false);
+});
+
+await scenario('a pinned later engine is tried first, with the chain behind it', async () => {
+  await setModes({ deepgram: 'ok', gladia: 'ok', assemblyai: 'ok' });
+  const { status, body } = await transcribe(app.base, { fields: { engine: 'assemblyai' } });
+  assert.equal(status, 200);
+  assert.equal(body.engine, 'assemblyai');
+  assert.equal(body.attempts[0].engine, 'assemblyai');
+  assert.equal(body.fallbackUsed, false);
+});
+
+await scenario('Speechmatics rejects a remote URL instead of being called', async () => {
+  await setModes();
+  const response = await fetch(`${app.base}/api/transcribe`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      audioUrl: 'https://mock123.public.blob.vercel-storage.com/stt-uploads/clip.webm',
+      engine: 'speechmatics',
+      fallback: 'false',
+    }),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 400);
+  assert.equal(body.error.code, 'BAD_REQUEST');
+  assert.match(body.error.message, /bytes|does not accept/i);
+});
+
+console.log('\nUsage reporting');
+await scenario('GET /api/usage reports every engine without inventing figures', async () => {
+  const response = await fetch(`${app.base}/api/usage`);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+
+  assert.deepEqual(
+    body.engines.map((entry) => entry.engine),
+    ['deepgram', 'gladia', 'assemblyai', 'speechmatics'],
+  );
+
+  // Local counters exist for every engine and are labelled as such.
+  for (const entry of body.engines) {
+    assert.equal(entry.configured, true);
+    assert.ok(entry.local, `${entry.engine} should have local counters`);
+    assert.equal(typeof entry.local.requests, 'number');
+  }
+
+  // Providers expose different amounts of truth. Gladia and AssemblyAI
+  // publish nothing, so those entries must say so rather than show a number.
+  const byId = Object.fromEntries(body.engines.map((entry) => [entry.engine, entry]));
+  assert.equal(byId.gladia.reportsUsage, 'none');
+  assert.equal(byId.gladia.provider.available, false);
+  assert.match(byId.gladia.provider.error, /dashboard|endpoint/i);
+  assert.equal(byId.assemblyai.reportsUsage, 'none');
+  assert.equal(byId.speechmatics.reportsUsage, 'usage');
+
+  // Deepgram is the only engine that can report a *remaining* balance, so the
+  // report must carry it through (and label its units).
+  assert.equal(byId.deepgram.provider.available, true);
+  assert.equal(byId.deepgram.provider.remaining.amount, 123.45);
+  assert.equal(byId.deepgram.provider.remaining.units, 'USD');
+  assert.equal(byId.deepgram.provider.consumption.hours, 1.5);
+  assert.equal(byId.deepgram.provider.consumption.requests, 12);
+
+  // Speechmatics reports consumption and explicitly no balance.
+  assert.equal(byId.speechmatics.provider.available, true);
+  assert.equal(byId.speechmatics.provider.consumption.hours, 0.25);
+  assert.equal(byId.speechmatics.provider.consumption.jobs, 4);
+  assert.equal(byId.speechmatics.provider.remaining, null);
+  assert.match(byId.speechmatics.provider.note, /batch usage only/i);
+
+  assert.equal(body.totals.requests >= 5, true);
+  assert.ok(body.disclosure.localCounters);
+  assert.ok(body.disclosure.providerFigures);
+});
+
 console.log('\nDouble failure handling');
-await scenario('returns a structured error when both engines fail', async () => {
-  await setModes({ deepgram: 'rate-limit', gladia: 'upload-error' });
+await scenario('returns a structured error when the whole chain fails', async () => {
+  await setModes({
+    deepgram: 'rate-limit',
+    gladia: 'server-error',
+    assemblyai: 'auth',
+    speechmatics: 'server-error',
+  });
   const { status, body } = await transcribe(app.base);
   assert.equal(status, 502);
   assert.equal(body.error.code, 'SERVER_ERROR');
-  assert.match(body.error.message, /Both transcription engines failed/i);
-  assert.equal(body.error.attempts.length, 2);
+  assert.match(body.error.message, /All 4 engines failed \(deepgram, gladia, assemblyai, speechmatics\)/i);
+  assert.equal(body.error.attempts.length, 4);
   assert.deepEqual(
     body.error.attempts.map((attempt) => attempt.code),
-    ['RATE_LIMITED', 'SERVER_ERROR'],
+    ['RATE_LIMITED', 'SERVER_ERROR', 'AUTH', 'SERVER_ERROR'],
   );
   // Provider detail stays server-side (it goes to the server log instead).
-  assert.equal(body.error.attempts[0].detail, undefined);
+  for (const attempt of body.error.attempts) assert.equal(attempt.detail, undefined);
   assert.equal(body.error.detail, undefined);
 });
 
@@ -659,7 +835,12 @@ await limited.close();
 
 /* ------------------------------------------------------------------ teardown */
 
-await Promise.all([deepgramMock.close(), gladiaMock.close()]);
+await Promise.all([
+  deepgramMock.close(),
+  gladiaMock.close(),
+  assemblyaiMock.close(),
+  speechmaticsMock.close(),
+]);
 
 console.log(`\n${passed} passed, ${failures.length} failed\n`);
 

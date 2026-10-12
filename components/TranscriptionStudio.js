@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AudioSourceCard from '@/components/AudioSourceCard';
 import EngineControls from '@/components/EngineControls';
 import TranscriptPanel from '@/components/TranscriptPanel';
+import UsagePanel from '@/components/UsagePanel';
 import {
   BoltIcon,
   LayersIcon,
@@ -34,8 +35,19 @@ import {
   uploadToBlob,
 } from '@/lib/client/api';
 import { engineLabel, formatBytes, formatDuration, modelLabel } from '@/lib/client/format';
+import { DEFAULT_ENGINE_ORDER, ENGINES, ENGINE_IDS } from '@/lib/engines-meta';
 
-const DEFAULT_AVAILABILITY = { deepgram: true, gladia: true };
+/**
+ * Optimistic placeholder shown until /api/health answers: every engine the
+ * build knows about, all assumed configured so the picker is never empty.
+ */
+const FALLBACK_ENGINE_LIST = ENGINES.map((engine) => ({
+  ...engine,
+  available: true,
+  position: DEFAULT_ENGINE_ORDER.indexOf(engine.id) + 1,
+}));
+
+const DEFAULT_AVAILABILITY = Object.fromEntries(ENGINE_IDS.map((id) => [id, true]));
 
 export default function TranscriptionStudio() {
   /* ------------------------------------------------------------- settings */
@@ -43,6 +55,12 @@ export default function TranscriptionStudio() {
   const [fallback, setFallback] = useState(true);
   const [language, setLanguage] = useState('');
   const [availability, setAvailability] = useState(DEFAULT_AVAILABILITY);
+  /** Engine metadata straight from the deployment (order, keys, accents). */
+  const [engines, setEngines] = useState(FALLBACK_ENGINE_LIST);
+  const [engineOrder, setEngineOrder] = useState(DEFAULT_ENGINE_ORDER);
+  const [usagePanelEnabled, setUsagePanelEnabled] = useState(true);
+  /** Bumped after every completed transcription so the usage panel refetches. */
+  const [usageRefreshToken, setUsageRefreshToken] = useState(0);
   const [limits, setLimits] = useState({ maxUploadMb: 25 });
   /** Large-file mode (browser → Vercel Blob → provider URL) when configured. */
   const [largeUploads, setLargeUploads] = useState({ enabled: false });
@@ -72,10 +90,19 @@ export default function TranscriptionStudio() {
         const response = await fetch('/api/health', { cache: 'no-store' });
         const payload = await response.json();
         if (cancelled || !payload) return;
-        setAvailability({
-          deepgram: Boolean(payload.engines?.deepgram?.available ?? true),
-          gladia: Boolean(payload.engines?.gladia?.available ?? true),
-        });
+
+        const list = Array.isArray(payload.engines) && payload.engines.length
+          ? payload.engines
+          : FALLBACK_ENGINE_LIST;
+
+        setEngines(list);
+        setAvailability(
+          Object.fromEntries(list.map((entry) => [entry.id, Boolean(entry.available)])),
+        );
+        if (Array.isArray(payload.engineOrder) && payload.engineOrder.length) {
+          setEngineOrder(payload.engineOrder);
+        }
+        setUsagePanelEnabled(Boolean(payload.features?.usagePanel ?? true));
         setFallbackOptionEnabled(Boolean(payload.features?.clientFallbackToggle ?? true));
         if (payload.limits?.maxUploadMb) {
           setLimits({
@@ -93,8 +120,12 @@ export default function TranscriptionStudio() {
               }
             : { enabled: false },
         );
-        if (!payload.engines?.gladia?.available) setEngine((current) => (current === 'gladia' ? 'deepgram' : current));
-        if (!payload.engines?.deepgram?.available) setEngine((current) => (current === 'deepgram' ? 'gladia' : current));
+        // Never leave a pinned engine selected once we know it has no key.
+        setEngine((current) => {
+          if (current === 'auto') return current;
+          const entry = list.find((candidate) => candidate.id === current);
+          return entry && !entry.available ? 'auto' : current;
+        });
       } catch {
         /* The studio still works; it just cannot grey out unusable engines. */
       } finally {
@@ -173,6 +204,8 @@ export default function TranscriptionStudio() {
       setText(payload.text ?? '');
       setElapsedMs(payload.elapsedMs ?? Date.now() - startedAt);
       setStatus('done');
+      // The request just changed the consumption numbers on the server.
+      setUsageRefreshToken((value) => value + 1);
       requestAnimationFrame(() => {
         transcriptRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
@@ -237,15 +270,32 @@ export default function TranscriptionStudio() {
   }, [runTranscription, cancelTranscription, status]);
 
   /* --------------------------------------------------------- derive bits */
+  /**
+   * Mirrors the server's `buildEnginePlan`: the configured chain is the base,
+   * a pinned engine moves to the front, and turning fallback off collapses the
+   * plan to that single engine.
+   */
   const plan = useMemo(() => {
-    const order = engine === 'gladia' ? ['gladia', 'deepgram'] : ['deepgram', 'gladia'];
-    const usable = order.filter((id) => availability[id]);
-    if (!usable.length) return { chain: [], primary: null, fallback: null };
-    if (engine !== 'auto' && !(fallback && fallbackOptionEnabled)) {
-      return { chain: [engine], primary: engine, fallback: null };
+    const configured = engineOrder.filter((id) => availability[id]);
+    const base = configured.length ? configured : ENGINE_IDS.filter((id) => availability[id]);
+    if (!base.length) return { chain: [], primary: null, fallback: null };
+
+    if (engine !== 'auto') {
+      if (!availability[engine]) return { chain: [], primary: null, fallback: null };
+      if (!(fallback && fallbackOptionEnabled)) {
+        return { chain: [engine], primary: engine, fallback: null };
+      }
+      return { chain: [engine, ...base.filter((id) => id !== engine)], primary: engine, fallback: base.find((id) => id !== engine) ?? null };
     }
-    return { chain: usable, primary: usable[0], fallback: usable[1] ?? null };
-  }, [engine, availability, fallback, fallbackOptionEnabled]);
+
+    return { chain: base, primary: base[0], fallback: base[1] ?? null };
+  }, [engine, engineOrder, availability, fallback, fallbackOptionEnabled]);
+
+  /** Model label for an engine id, taken from the deployment's own metadata. */
+  const modelFor = useCallback(
+    (id) => engines.find((entry) => entry.id === id)?.model ?? null,
+    [engines],
+  );
 
   const stageText = useMemo(() => {
     const seconds = elapsedMs / 1000;
@@ -255,12 +305,14 @@ export default function TranscriptionStudio() {
     }
     if (seconds < 0.6) return 'Sending audio to the server proxy…';
     if (seconds < 2) return `Opening a stream to ${engineLabel(plan.primary)}…`;
-    if (seconds < 12) return `Transcribing with ${modelLabel(plan.primary, plan.primary === 'deepgram' ? 'nova-2' : 'solaria-1')}…`;
+    if (seconds < 12) {
+      return `Transcribing with ${modelLabel(plan.primary, modelFor(plan.primary))}…`;
+    }
     if (plan.fallback && seconds > 25) {
-      return `Still working — ${engineLabel(plan.fallback)} fallback is available if ${engineLabel(plan.primary)} gives up…`;
+      return `Still working — ${engineLabel(plan.fallback)} is queued if ${engineLabel(plan.primary)} gives up…`;
     }
     return 'Still transcribing — long recordings can take a while…';
-  }, [status, elapsedMs, plan, uploadProgress]);
+  }, [status, elapsedMs, plan, uploadProgress, modelFor]);
 
   const canRun = Boolean(audio) && status !== 'running' && !isRecordingBusy && plan.chain.length > 0;
 
@@ -285,7 +337,7 @@ export default function TranscriptionStudio() {
         onFallbackChange={setFallback}
         language={language}
         onLanguageChange={setLanguage}
-        availability={availability}
+        engines={engines}
         fallbackOptionEnabled={fallbackOptionEnabled}
         disabled={status === 'running'}
       />
@@ -383,8 +435,8 @@ export default function TranscriptionStudio() {
         </div>
 
         <p className="mt-4 text-[11px] leading-relaxed text-ink-500">
-          {healthChecked && !availability.deepgram && !availability.gladia
-            ? 'No engine keys detected — add DEEPGRAM_API_KEY and/or GLADIA_API_KEY to .env.local and restart the dev server.'
+          {healthChecked && plan.chain.length === 0
+            ? `No engine keys detected — add one of ${engines.map((entry) => entry.keyVar).join(', ')} to .env.local (or your Vercel project) and restart.`
             : [
                 'Audio is sent to this app’s own API route and forwarded straight to the provider.',
                 largeUploads.enabled
@@ -408,6 +460,13 @@ export default function TranscriptionStudio() {
           onClear={clearAll}
         />
       </div>
+
+      <UsagePanel
+        key={usageRefreshToken}
+        engines={engines}
+        engineOrder={engineOrder}
+        enabled={usagePanelEnabled}
+      />
     </div>
   );
 }
