@@ -8,8 +8,8 @@
  *   • the cookie is untrusted input — every malformed shape must degrade to
  *     "nothing stored" instead of throwing;
  *   • a key must never appear in any response the UI receives;
- *   • precedence (settings → environment) must be exact, including the
- *     "disabled here" shadow that outranks the deployment;
+ *   • precedence (settings → environment → built-in default) must be exact,
+ *     including the "disabled here" shadow that outranks the deployment;
  *   • the usage cache must be keyed per credential, or one visitor could read
  *     another's figures.
  */
@@ -36,6 +36,7 @@ import {
   environmentKeys,
   resolveEngineConfig,
 } from '../lib/server/config.js';
+import { DEFAULT_KEYS, defaultKey, hasDefaultKeys } from '../lib/server/default-keys.js';
 
 const SAMPLES = {
   deepgram: 'dg-typed-key-4f2a91',
@@ -258,5 +259,79 @@ test('an environment key is still the fallback for every engine', () => {
     assert.ok(Object.values(keys).every((value) => value === null || typeof value === 'string'));
   } finally {
     process.env = previous;
+  }
+});
+
+/* ---------------------------------------------------- built-in defaults */
+
+test('every engine has a built-in default key that is shaped like a real one', () => {
+  assert.equal(hasDefaultKeys, true);
+
+  for (const [engine, key] of Object.entries(DEFAULT_KEYS)) {
+    assert.equal(typeof key, 'string', `${engine} must resolve to a string`);
+    assert.ok(key.length > 0, `${engine} must ship a usable default`);
+    // The same gate a key typed into /settings has to pass.
+    assert.equal(validateKeyShape(engine, key).ok, true, `${engine} default must be well-formed`);
+  }
+});
+
+test('a built-in default is masked like any deployment key, never echoed', () => {
+  const state = credentialState('deepgram', defaultKey('deepgram'), undefined);
+
+  assert.equal(state.source, 'environment', 'a default is a deployment key to the visitor');
+  assert.equal(state.configured, true);
+  assert.equal(state.fromSettings, false);
+  assert.equal(state.masked, '••••••••');
+
+  const serialised = JSON.stringify(credentialReport({}, DEFAULT_KEYS));
+  for (const key of Object.values(DEFAULT_KEYS)) {
+    assert.ok(!serialised.includes(key), 'no response may carry a default key');
+  }
+});
+
+test('a key from /settings still outranks the built-in default', () => {
+  const engine = 'speechmatics';
+  const builtIn = defaultKey(engine);
+
+  assert.equal(effectiveKey(engine, builtIn, { key: SAMPLES.gladia }), SAMPLES.gladia);
+  assert.equal(effectiveKey(engine, builtIn, undefined), builtIn);
+  assert.equal(effectiveKey(engine, builtIn, { disabled: true }), null);
+});
+
+test('the built-in defaults reach the config layer, so all four engines can run', () => {
+  const keys = environmentKeys();
+
+  assert.deepEqual(Object.keys(keys).sort(), ['assemblyai', 'deepgram', 'gladia', 'speechmatics']);
+  for (const [engine, key] of Object.entries(keys)) {
+    assert.equal(key, defaultKey(engine), `${engine} falls back to its default`);
+    assert.ok(key, `${engine} is configured out of the box`);
+  }
+
+  const availability = engineAvailability({});
+  assert.deepEqual(availability, {
+    deepgram: true,
+    gladia: true,
+    assemblyai: true,
+    speechmatics: true,
+  });
+  assert.equal(availableEngineOrder({}).length, 4, 'the whole failover chain is live');
+
+  // A visitor's own key still wins, and disabling still beats everything.
+  assert.equal(resolveEngineConfig('gladia', { gladia: { key: SAMPLES.gladia } }).apiKey, SAMPLES.gladia);
+  assert.equal(resolveEngineConfig('gladia', { gladia: { disabled: true } }).apiKey, null);
+});
+
+test('DISABLE_BUILTIN_KEYS=1 switches the shared defaults off', async () => {
+  const previous = process.env.DISABLE_BUILTIN_KEYS;
+  process.env.DISABLE_BUILTIN_KEYS = '1';
+  try {
+    // A fresh module instance, so the flag is read again at import time.
+    const off = await import('../lib/server/default-keys.js?disabled=1');
+    assert.equal(off.defaultKeysDisabled, true);
+    assert.equal(off.hasDefaultKeys, false);
+    assert.equal(off.defaultKey('deepgram'), '');
+  } finally {
+    if (previous === undefined) delete process.env.DISABLE_BUILTIN_KEYS;
+    else process.env.DISABLE_BUILTIN_KEYS = previous;
   }
 });

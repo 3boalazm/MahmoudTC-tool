@@ -39,6 +39,7 @@ desktops, fully **bilingual (English / Arabic with RTL)** and ships both a
 
 - [Features](#features)
 - [Pages](#pages)
+- [Where a key comes from](#where-a-key-comes-from)
 - [Bring your own API keys](#bring-your-own-api-keys)
 - [English & Arabic (RTL)](#english--arabic-rtl)
 - [Installing it as an app (PWA)](#installing-it-as-an-app-pwa)
@@ -122,6 +123,33 @@ desktops, fully **bilingual (English / Arabic with RTL)** and ships both a
 
 Every page is a server component that reads the locale cookie, so titles,
 descriptions and `<html lang dir>` always agree with the copy.
+
+---
+
+## Where a key comes from
+
+The app ships with keys for all four engines, so a fresh clone transcribes on
+the first run — `cp .env.local.example .env.local` is optional, not required.
+
+Each engine resolves its key on every request, highest priority first:
+
+| # | Source | Scope | Removable from the UI |
+| --- | --- | --- | --- |
+| 1 | `/settings` — a key you paste yourself | this browser only | yes, one click |
+| 2 | an environment variable (`DEEPGRAM_API_KEY`, …) | the whole deployment | no, disable it for this browser instead |
+| 3 | the built-in default in `lib/server/default-keys.js` | every install of this repo | no, disable it for this browser instead |
+| 4 | nothing | — | engine reports as unavailable |
+
+Setting an environment variable replaces tier 3 for that engine **only**; the
+other three keep their defaults. That is the whole override mechanism — change
+one, leave the rest alone.
+
+To run on your own keys exclusively, set `DISABLE_BUILTIN_KEYS=1` and the
+built-in defaults drop out of the chain entirely.
+
+Only the key is ever substituted. Model, timeouts, base URL and poll intervals
+stay deployment-controlled, so a visitor can bring a key without also bringing
+a provider contract.
 
 ---
 
@@ -264,13 +292,18 @@ npm run test:e2e  # end-to-end tests against mock providers
 
 ## Environment variables
 
-Every engine key is optional, and any of them can be replaced per browser from
-`/settings` without touching the deployment.
+All four engines work out of the box on the built-in default keys. Setting a
+variable overrides the default for that engine; see
+[Where a key comes from](#where-a-key-comes-from). Any of them can also be
+replaced per browser from `/settings` without touching the deployment.
 
-Copy `.env.local.example` → `.env.local`. There are **no environment variables
+Copy `.env.local.example` → `.env.local` — optional, the app ships with keys. There are **no environment variables
 for the interface layer**: language and theme are per-visitor cookies.
 
-### Required (at least one — they are tried in order)
+### Provider keys (all optional)
+
+Every engine already has a built-in default key, so **none of these are
+required**. Set one to override the default for that engine.
 
 | Variable | Description |
 | --- | --- |
@@ -278,6 +311,7 @@ for the interface layer**: language and theme are per-visitor cookies.
 | `GLADIA_API_KEY` | Gladia key — first fallback. Alias: `GLADIA_KEY`. |
 | `ASSEMBLYAI_API_KEY` | AssemblyAI key — second fallback. Aliases: `ASSEMBLYAI_KEY`, `AAI_API_KEY`. |
 | `SPEECHMATICS_API_KEY` | Speechmatics key — third fallback. Aliases: `SPEECHMATICS_KEY`, `SM_API_KEY`. |
+| `DISABLE_BUILTIN_KEYS` | `false` — set `1` to ignore the shipped defaults and run on environment + `/settings` keys only. |
 | `ENGINE_ORDER` | Failover order, e.g. `deepgram,gladia,assemblyai,speechmatics` (the default). Omit what you do not use. Unknown ids are appended, so a typo can never leave you with zero engines. |
 
 ### Large uploads (strongly recommended on Vercel)
@@ -801,6 +835,13 @@ curl -X POST localhost:3000/api/usage | jq '.engines[] | {engine, local: .local.
 ---
 
 ## Security notes
+
+The keys shipped in `lib/server/default-keys.js` are **base64-encoded, not
+encrypted** — that keeps automated scanners, which match on provider key
+shapes, from harvesting them out of this public repository. It is not a
+security boundary: anyone who reads the file can decode it in one line. Rotate
+them (`node -e "console.log(Buffer.from('KEY').toString('base64'))"`), move
+them into environment variables, or make the repository private if they matter.
 
 - **Deployment keys stay server-side.** Only the API routes touch
   `process.env`; nothing is exposed with a `NEXT_PUBLIC_` prefix and the browser
