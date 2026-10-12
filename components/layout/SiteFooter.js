@@ -22,6 +22,7 @@ export default function SiteFooter() {
     { href: '/engines', label: t('nav.engines') },
     { href: '/usage', label: t('nav.usage') },
     { href: '/faq', label: t('nav.faq') },
+    { href: '/settings', label: t('nav.settings') },
   ];
 
   return (

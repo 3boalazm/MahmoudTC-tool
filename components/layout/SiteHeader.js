@@ -24,6 +24,7 @@ const PAGES = [
   { href: '/engines', key: 'nav.engines' },
   { href: '/usage', key: 'nav.usage' },
   { href: '/faq', key: 'nav.faq' },
+  { href: '/settings', key: 'nav.settings' },
 ];
 
 export default function SiteHeader() {

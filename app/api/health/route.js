@@ -9,16 +9,30 @@
 
 import { ACCENT_CLASSES, ENGINES } from '@/lib/engines-meta';
 import { isBlobEnabled } from '@/lib/server/blob';
-import { availableEngineOrder, engineAvailability, serverConfig } from '@/lib/server/config';
+import {
+  availableEngineOrder,
+  engineAvailability,
+  resolveEngineConfig,
+  serverConfig,
+} from '@/lib/server/config';
+import { KEYS_COOKIE, parseCredentialCookie } from '@/lib/server/credentials';
 import { jsonResponse } from '@/lib/server/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export function GET() {
-  const availability = engineAvailability();
-  const order = availableEngineOrder();
+export function GET(request) {
+  /*
+   * Availability is per visitor: a key saved on the settings page makes an
+   * engine usable for that browser even when the deployment has no env key.
+   */
+  const credentials = parseCredentialCookie(request.cookies.get(KEYS_COOKIE)?.value);
+  const availability = engineAvailability(credentials);
+  const order = availableEngineOrder(credentials);
   const blobEnabled = isBlobEnabled();
+  const configs = Object.fromEntries(
+    ENGINES.map((engine) => [engine.id, resolveEngineConfig(engine.id, credentials)]),
+  );
 
   return jsonResponse({
     ok: true,
@@ -30,8 +44,16 @@ export function GET() {
       available: availability[engine.id],
       // An empty ASSEMBLYAI_MODEL means "use the account default", so fall back
       // to the marketing name from the registry rather than rendering nothing.
-      model: serverConfig[engine.id]?.model || engine.model,
+      model: configs[engine.id]?.model || engine.model,
       configuredModel: serverConfig[engine.id]?.model || null,
+      /** Where this request's key comes from: `settings`, `environment` or none. */
+      keySource: credentials[engine.id]?.key
+        ? 'settings'
+        : credentials[engine.id]?.disabled
+          ? 'disabled'
+          : serverConfig[engine.id]?.apiKey
+            ? 'environment'
+            : null,
       blurb: engine.blurb,
       description: engine.description,
       supportsRemoteUrl: engine.supportsRemoteUrl,
@@ -46,6 +68,11 @@ export function GET() {
     })),
     engineOrder: order,
     accents: ACCENT_CLASSES,
+    credentials: {
+      /** True when at least one key came from this browser's settings page. */
+      fromSettings: Object.values(credentials).some((entry) => entry?.key),
+      manageUrl: '/settings',
+    },
     limits: {
       /** Files at or below this size are streamed through the API route. */
       maxUploadMb: serverConfig.upload.maxMb,

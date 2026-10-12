@@ -136,6 +136,47 @@ test('every t() key used in the codebase exists in both dictionaries', () => {
     assert.ok(`errors.code.${code}` in flatAr, `missing errors.code.${code} (ar)`);
   }
 
+  /*
+   * These are built dynamically (`t(`settings.result.${code}`)`), so the literal
+   * scan above cannot see them — they are listed here instead.
+   */
+  for (const code of [
+    'OK',
+    'REJECTED',
+    'FORBIDDEN',
+    'NO_CREDIT',
+    'RATE_LIMITED',
+    'TIMEOUT',
+    'UNREACHABLE',
+    'UNEXPECTED',
+    'PROVIDER_ERROR',
+    'MISSING_KEY',
+    'DISABLED',
+    'ENABLED',
+    'DISCONNECTED',
+    'DISCONNECTED_ALL',
+    'NOT_CONNECTED',
+  ]) {
+    assert.ok(`settings.result.${code}` in flatEn, `missing settings.result.${code} (en)`);
+    assert.ok(`settings.result.${code}` in flatAr, `missing settings.result.${code} (ar)`);
+  }
+
+  for (const reason of [
+    'empty',
+    'too-short',
+    'too-long',
+    'whitespace',
+    'quotes',
+    'prefix',
+    'placeholder',
+    'unknown-engine',
+    'network',
+    'unknown',
+  ]) {
+    assert.ok(`settings.invalid.${reason}` in flatEn, `missing settings.invalid.${reason} (en)`);
+    assert.ok(`settings.invalid.${reason}` in flatAr, `missing settings.invalid.${reason} (ar)`);
+  }
+
   for (const code of [
     'UNSUPPORTED',
     'PERMISSION_DENIED',

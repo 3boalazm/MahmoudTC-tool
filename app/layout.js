@@ -119,7 +119,16 @@ export default async function RootLayout({ children }) {
         {/* Resolves "system" to the real preference before the body paints. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
-      <body className="flex min-h-dvh flex-col bg-canvas font-sans text-ink-100 antialiased">
+      {/*
+        * `suppressHydrationWarning` here is deliberate and scoped to <body>:
+        * extensions such as Grammarly inject attributes (data-gr-ext-installed,
+        * data-new-gr-c-s-check-loaded) before React hydrates, which is not a bug
+        * in this app and not something the app can prevent.
+        */}
+      <body
+        suppressHydrationWarning
+        className="flex min-h-dvh flex-col bg-canvas font-sans text-ink-100 antialiased"
+      >
         <I18nProvider locale={locale}>
           <ThemeProvider theme={theme}>
             <a

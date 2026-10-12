@@ -22,12 +22,14 @@ import TranscriptPanel from '@/components/TranscriptPanel';
 import UsagePanel from '@/components/UsagePanel';
 import {
   BoltIcon,
+  KeyIcon,
   LayersIcon,
   ShieldIcon,
   SparkIcon,
   SpinnerIcon,
   WaveIcon,
 } from '@/components/Icons';
+import Link from 'next/link';
 import { useI18n } from '@/components/providers/I18nProvider.js';
 import { useAudioSource } from '@/hooks/useAudioSource';
 import {
@@ -69,6 +71,8 @@ export default function TranscriptionStudio() {
   const [largeUploads, setLargeUploads] = useState({ enabled: false });
   const [fallbackOptionEnabled, setFallbackOptionEnabled] = useState(true);
   const [healthChecked, setHealthChecked] = useState(false);
+  /** True when at least one key came from this browser's settings page. */
+  const [keysFromSettings, setKeysFromSettings] = useState(false);
 
   /* -------------------------------------------------------------- runtime */
   const [status, setStatus] = useState('idle'); // idle | running | done | error
@@ -105,6 +109,7 @@ export default function TranscriptionStudio() {
         if (Array.isArray(payload.engineOrder) && payload.engineOrder.length) {
           setEngineOrder(payload.engineOrder);
         }
+        setKeysFromSettings(Boolean(payload.credentials?.fromSettings));
         setUsagePanelEnabled(Boolean(payload.features?.usagePanel ?? true));
         setFallbackOptionEnabled(Boolean(payload.features?.clientFallbackToggle ?? true));
         if (payload.limits?.maxUploadMb) {
@@ -457,6 +462,22 @@ export default function TranscriptionStudio() {
                   : t('studio.footerLimit', { size: limits.maxUploadMb }),
               ].join(' ')}
         </p>
+
+        {/*
+          * Settings is the answer to both "nothing works" and "where did my key
+          * go", so the link appears exactly in those two situations.
+        */}
+        {healthChecked && (plan.chain.length === 0 || keysFromSettings) ? (
+          <p className="mt-2 text-[11px]">
+            <Link
+              href="/settings"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-ink-500/20 bg-surface-2/60 px-2.5 py-1.5 font-medium text-ink-200 transition hover:border-iris-400/40 hover:text-ink-100"
+            >
+              <KeyIcon className="size-3" />
+              {keysFromSettings ? t('studio.manageKeys') : t('studio.connectEngine')}
+            </Link>
+          </p>
+        ) : null}
       </section>
 
       <div ref={transcriptRef} className="scroll-mt-6">

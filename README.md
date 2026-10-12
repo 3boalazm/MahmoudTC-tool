@@ -39,6 +39,7 @@ desktops, fully **bilingual (English / Arabic with RTL)** and ships both a
 
 - [Features](#features)
 - [Pages](#pages)
+- [Bring your own API keys](#bring-your-own-api-keys)
 - [English & Arabic (RTL)](#english--arabic-rtl)
 - [Installing it as an app (PWA)](#installing-it-as-an-app-pwa)
 - [Light & dark themes](#light--dark-themes)
@@ -60,7 +61,9 @@ desktops, fully **bilingual (English / Arabic with RTL)** and ships both a
 **App shell**
 
 - **Separate pages**, each with its own title, description and route:
-  `/` · `/studio` · `/engines` · `/usage` · `/faq` (+ `/offline`).
+  `/` · `/studio` · `/engines` · `/usage` · `/faq` · `/settings` (+ `/offline`).
+- **Your own keys** — paste a provider key in `/settings`, test it, disconnect it;
+  stored in an `httpOnly` cookie on your device, never on the server.
 - **Bilingual UI** — English and Arabic, with automatic RTL flipping, a cookie
   that survives restarts, and `Accept-Language` detection on the first visit.
 - **Installable PWA** — web manifest, service worker, maskable icons, an
@@ -113,11 +116,54 @@ desktops, fully **bilingual (English / Arabic with RTL)** and ships both a
 | `/studio` | The transcriber: audio source, engine picker, run bar, transcript, usage panel. |
 | `/engines` | What each of the four providers is, which key enables it, what its API exposes, and the exact code-by-code hand-off table. |
 | `/usage` | The consumption report, plus an explanation of where every number comes from. |
+| `/settings` | Connect your own provider keys, test them, and disconnect. |
 | `/faq` | Questions and troubleshooting. |
 | `/offline` | Served by the service worker when a navigation fails with no connection. |
 
 Every page is a server component that reads the locale cookie, so titles,
 descriptions and `<html lang dir>` always agree with the copy.
+
+---
+
+## Bring your own API keys
+
+The app runs out of the box on the deployment's own keys, and equally well on
+*yours*. `/settings` connects a personal key per engine, tests it against the
+provider, and disconnects it again.
+
+| | Deployment key (`DEEPGRAM_API_KEY`, …) | Your key (settings page) |
+| --- | --- | --- |
+| Who can use it | every visitor | this browser only |
+| Where it lives | server environment variables | an `httpOnly` cookie on the device (`stt_keys`) |
+| Used when | no personal key is saved | always wins over the deployment key |
+| Removable from the UI | no — disable it for this browser instead | yes, one click ("Disconnect") |
+| Testable before saving | — | yes, a real authenticated probe per provider |
+
+Design notes:
+
+- **A key is never sent back to the browser.** Responses carry a mask
+  (`dg-t••••2a91`) and nothing else; a key saved here is readable only by the
+  server that stores it.
+- **`httpOnly` + `SameSite=Lax` + `Secure` in production**, so an injected script
+  cannot read it and another site cannot make the browser attach it. Cross-site
+  requests to `/api/credentials` are refused outright.
+- **Nothing is persisted server-side.** That is what makes this deployable to
+  Vercel with no database and no account system — the key travels with the
+  browser that typed it, and the server only ever holds it for the duration of a
+  request.
+- **A rejected key is not stored.** The probe returns `REJECTED` on a 401 and the
+  previous key stays in force, so fixing a typo can never cost you a working
+  channel. Inconclusive results (timeout, unreachable) *are* stored, with the
+  outcome shown verbatim.
+- **Usage stays per-credential.** Provider-reported figures are cached under a
+  fingerprint of the key that fetched them, so one visitor's balance can never
+  appear on another's screen.
+- **The probe is scope-safe.** Deepgram's probe uses `/v1/auth/token` (any scope)
+  rather than the management API, which would call a perfect listen-only key
+  broken.
+
+Adding an engine to the settings page is one entry in `PROBES`
+(`lib/server/verify.js`) plus the existing engine registry.
 
 ---
 
@@ -217,6 +263,9 @@ npm run test:e2e  # end-to-end tests against mock providers
 ---
 
 ## Environment variables
+
+Every engine key is optional, and any of them can be replaced per browser from
+`/settings` without touching the deployment.
 
 Copy `.env.local.example` → `.env.local`. There are **no environment variables
 for the interface layer**: language and theme are per-visitor cookies.
@@ -518,6 +567,24 @@ Vercel-specific features are all optional and auto-detected:
 
 ## API reference
 
+### `GET|POST|DELETE /api/credentials`
+
+The endpoint behind `/settings`. Never returns a key — only a mask and its
+source (`settings` | `environment` | `disabled` | `none`).
+
+| Call | Body / query | Does |
+| --- | --- | --- |
+| `GET` | — | masked status of every engine, plus the failover chain this browser can run |
+| `POST` | `{ engine, key }` | validates the shape, probes the provider, stores it (unless the provider answered `401`) |
+| `POST` | `{ engine, action: "test" }` | probes the stored or env key without changing anything |
+| `POST` | `{ engine, action: "disable" }` | shadows the deployment key for this browser |
+| `POST` | `{ engine, action: "enable" }` | removes that shadow |
+| `DELETE` | `?engine=gladia` | forgets one engine |
+| `DELETE` | `?all=1` | forgets everything (disconnect) |
+
+`403` cross-site · `400` unknown engine, unusable key shape (`X-Key-Rejected`
+carries the reason) · `429` too many probe attempts.
+
 ### `POST /api/transcribe`
 
 `multipart/form-data` (standard) or `application/json` (remote audio).
@@ -600,6 +667,7 @@ app/
     usage/route.js              Consumption + remaining-limit report
 
 components/
+  CredentialsPanel.js           The connect/disconnect UI (server-rendered first)
   layout/SiteHeader.js          Sticky nav, mobile sheet, switchers, install CTA
   layout/SiteFooter.js          Shared footer
   layout/LanguageSwitcher.js    EN ⇄ AR toggle
@@ -626,6 +694,8 @@ lib/
   i18n/server.js                Server helper: locale → translator
   i18n/dictionaries/{en,ar}.js  The strings (parity enforced by tests)
   engines-meta.js               Engine registry (labels, models, accents, usage mode)
+  server/credentials.js         Key cookie: parse, validate, mask, fingerprint, precedence
+  server/verify.js              Per-provider "is this key alive?" probes
   engines.js                    ⭐ Four provider adapters, error taxonomy
   url-guard.js                  SSRF-safe URL validation
   client/api.js                 fetch client + Blob direct upload
@@ -644,6 +714,7 @@ scripts/
   generate-icons.mjs            SVG mark → PWA icon set (sharp)
 
 tests/
+  credentials.test.mjs          Key cookie, validation, masks, precedence, cache isolation
   i18n.test.mjs                 Dictionary parity + every key used in the code
   theme.test.mjs                Palette parity + the theme cookie contract
   pwa.test.mjs                  Manifest, icons, and the service worker policy
@@ -669,8 +740,8 @@ tests/
 ## Testing
 
 ```bash
-npm test                       # 75 unit tests: parsing, errors, i18n parity, theme, PWA
-npm run build && npm run test:e2e   # 39 end-to-end scenarios
+npm test                       # 90 unit tests: parsing, errors, i18n parity, theme, PWA, credentials
+npm run build && npm run test:e2e   # 48 end-to-end scenarios
 ```
 
 The E2E suite boots the **real production build** against mock providers and
@@ -691,6 +762,9 @@ asserts the contract end to end:
   `Accept-Language` does the same with no cookie at all;
 - the theme cookie reaches the document, the manifest is localised and
   installable, and the service worker never caches `/api/*`;
+- a key saved on `/settings` is the one the provider receives (asserted on the
+  wire), a rejected key never replaces a working one, disconnecting restores the
+  deployment key, and no response ever contains a key;
 - validation: missing audio, wrong type, oversize, third-party `audioUrl` (SSRF);
 - rate limiting and `Retry-After`;
 - **an emulated Vercel deployment** — `VERCEL=1`, a proxy that enforces the
@@ -728,10 +802,16 @@ curl -X POST localhost:3000/api/usage | jq '.engines[] | {engine, local: .local.
 
 ## Security notes
 
-- **Keys stay server-side.** Only `/api/transcribe`, `/api/blob/upload` and
-  `/api/health` touch `process.env`; every one is a server route. Nothing is
-  exposed with a `NEXT_PUBLIC_` prefix. The browser only ever calls same-origin
-  paths.
+- **Deployment keys stay server-side.** Only the API routes touch
+  `process.env`; nothing is exposed with a `NEXT_PUBLIC_` prefix and the browser
+  only ever calls same-origin paths.
+- **Personal keys never leave their device in readable form.** A key saved on
+  `/settings` is stored in an `httpOnly`, `SameSite=Lax`, `Secure`-in-production
+  cookie, is written to no database and no log, and is only ever sent back to
+  this server so it can call the provider. Responses carry a mask; a fingerprint
+  (SHA-256, 12 hex chars) is used solely to keep usage caches apart. `/api/credentials`
+  refuses cross-site callers, and saving/testing is rate limited because each
+  attempt costs a provider round trip.
 - **SSRF containment.** `audioUrl` is validated against the exact Vercel Blob
   hostname pattern, https-only, no credentials, no ports, no fragments, length
   capped. Arbitrary and internal URLs are rejected before any provider sees them.
