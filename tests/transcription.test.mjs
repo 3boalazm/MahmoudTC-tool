@@ -432,7 +432,8 @@ test('providers reject a source with neither bytes nor a URL', async () => {
 
 test('the engine registry describes four engines in failover order', () => {
   assert.deepEqual(ENGINE_IDS, ['deepgram', 'gladia', 'assemblyai', 'speechmatics']);
-  assert.deepEqual(DEFAULT_ENGINE_ORDER, ENGINE_IDS);
+  assert.deepEqual(DEFAULT_ENGINE_ORDER, ['assemblyai', 'deepgram', 'gladia', 'speechmatics']);
+  assert.deepEqual([...DEFAULT_ENGINE_ORDER].sort(), [...ENGINE_IDS].sort());
 
   for (const id of ENGINE_IDS) {
     const engine = ENGINE_MAP[id];
@@ -524,6 +525,45 @@ test('parseAssemblyAITranscript falls back to utterances and averages confidence
   assert.equal(result.text, 'First part. Second part.');
   assert.equal(result.words.length, 2);
   assert.ok(Math.abs(result.confidence - 0.7) < 0.001);
+});
+
+test('transcribeWithGladia uploads the audio as multipart with a boundary content-type', async () => {
+  const calls = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const href = String(url);
+    calls.push({ href, init });
+    const json = (payload) =>
+      new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+
+    if (href.endsWith('/upload')) return json({ audio_url: 'https://api.gladia.local/file/1' });
+    if (href.endsWith('/transcription')) return json({ id: 'job-1', status: 'queued' });
+    return json({
+      id: 'job-1',
+      status: 'done',
+      result: { transcription: { full_transcript: 'Hello', utterances: [] } },
+    });
+  };
+
+  try {
+    const audio = Buffer.from('audio-bytes');
+    const result = await transcribeWithGladia(
+      { buffer: audio, filename: 'clip.webm', contentType: 'audio/webm' },
+      { apiKey: 'test-key', baseUrl: 'https://gladia.test/v2', pollIntervalMs: 1 },
+    );
+    assert.equal(result.text, 'Hello');
+
+    const upload = calls.find((call) => call.href.endsWith('/upload'));
+    assert.match(upload.init.headers['Content-Type'], /^multipart\/form-data; boundary=/);
+    assert.equal(upload.init.headers['x-gladia-key'], 'test-key');
+    assert.ok(Buffer.isBuffer(upload.init.body), 'body must be the raw multipart bytes');
+    assert.ok(upload.init.body.includes(audio), 'audio bytes must survive intact');
+  } finally {
+    globalThis.fetch = original;
+  }
 });
 
 test('transcribeWithAssemblyAI uploads bytes then polls the transcript', async () => {

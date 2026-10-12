@@ -312,7 +312,7 @@ required**. Set one to override the default for that engine.
 | `ASSEMBLYAI_API_KEY` | AssemblyAI key — second fallback. Aliases: `ASSEMBLYAI_KEY`, `AAI_API_KEY`. |
 | `SPEECHMATICS_API_KEY` | Speechmatics key — third fallback. Aliases: `SPEECHMATICS_KEY`, `SM_API_KEY`. |
 | `DISABLE_BUILTIN_KEYS` | `false` — set `1` to ignore the shipped defaults and run on environment + `/settings` keys only. |
-| `ENGINE_ORDER` | Failover order, e.g. `deepgram,gladia,assemblyai,speechmatics` (the default). Omit what you do not use. Unknown ids are appended, so a typo can never leave you with zero engines. |
+| `ENGINE_ORDER` | Failover order, e.g. `assemblyai,deepgram,gladia,speechmatics` (the default). Omit what you do not use. Unknown ids are appended, so a typo can never leave you with zero engines. |
 
 ### Large uploads (strongly recommended on Vercel)
 
