@@ -330,7 +330,7 @@ required**. Set one to override the default for that engine.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `DEEPGRAM_MODEL` | `nova-3` | Nova-3 supports Arabic, including Egyptian Arabic (`ar-EG`); Arabic/auto requests are upgraded from Nova-3 if it is explicitly configured. |
+| `DEEPGRAM_MODEL` | `nova-3` | Nova-3 supports Arabic, including Egyptian Arabic (`ar-EG`); Arabic/auto requests are upgraded from Nova-2 if it is explicitly configured. |
 | `MAX_UPLOAD_MB` | `4` on Vercel, `25` elsewhere | Ceiling for audio streamed *through* the API route. |
 | `ALLOW_MEDIA_LINKS` | `true` | Turns the "From a link" input on or off. |
 | `MAX_LINK_MB` | `50` on Vercel, `100` elsewhere | Largest file the server will download from a pasted link. |
