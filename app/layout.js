@@ -9,7 +9,6 @@
  *                the first paint)
  */
 
-import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { cookies, headers } from 'next/headers';
 
@@ -26,6 +25,7 @@ import {
   resolveLocale,
 } from '@/lib/i18n/config.js';
 import { getDictionary } from '@/lib/i18n/index.js';
+import { ibmPlexSans, ibmPlexSansArabic, thmanyahSerifDisplay } from '@/lib/fonts.js';
 
 import './globals.css';
 
@@ -76,12 +76,12 @@ export async function generateMetadata() {
 export async function generateViewport() {
   const jar = await cookies();
   const theme = normaliseTheme(jar.get(THEME_COOKIE)?.value);
-  const background = theme === 'light' ? '#f6f7fb' : '#070a13';
+  const background = theme === 'light' ? '#f6f7fb' : '#090b0f';
 
   return {
     themeColor: [
       { media: '(prefers-color-scheme: light)', color: '#f6f7fb' },
-      { media: '(prefers-color-scheme: dark)', color: '#070a13' },
+      { media: '(prefers-color-scheme: dark)', color: '#090b0f' },
     ],
     colorScheme: 'light dark',
     width: 'device-width',
@@ -112,7 +112,7 @@ export default async function RootLayout({ children }) {
        * `system` is left for the inline script to resolve.
        */
       data-theme={theme === 'system' ? undefined : theme}
-      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      className={`${ibmPlexSans.variable} ${ibmPlexSansArabic.variable} ${thmanyahSerifDisplay.variable} ${GeistMono.variable}`}
       suppressHydrationWarning
     >
       <head>
@@ -137,6 +137,35 @@ export default async function RootLayout({ children }) {
             >
               {t.nav.skip}
             </a>
+            {/* Site-wide ambient glow: two slow-drifting colour fields behind every page. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+            >
+              <div
+                className="blur-orb animate-blob-drift"
+                style={{
+                  width: 460,
+                  height: 460,
+                  insetInlineStart: '-6%',
+                  top: '8%',
+                  background:
+                    'radial-gradient(circle, color-mix(in oklab, var(--color-iris-500) 16%, transparent), transparent 70%)',
+                }}
+              />
+              <div
+                className="blur-orb animate-blob-drift"
+                style={{
+                  width: 420,
+                  height: 420,
+                  insetInlineEnd: '-8%',
+                  bottom: '4%',
+                  animationDelay: '5s',
+                  background:
+                    'radial-gradient(circle, color-mix(in oklab, var(--color-mint-400) 11%, transparent), transparent 70%)',
+                }}
+              />
+            </div>
             <SiteHeader />
             <div id="main" className="flex-1">
               {children}

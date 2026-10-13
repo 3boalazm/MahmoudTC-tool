@@ -78,6 +78,11 @@ export function GET(request) {
       maxUploadMb: serverConfig.upload.maxMb,
       /** Hard platform ceiling (4.5 MB on Vercel) — exceeded never, by design. */
       platformBodyLimitMb: serverConfig.runtime.platformBodyLimitMb,
+      /** "Transcribe from a link" — the server downloads the file itself. */
+      link: {
+        enabled: serverConfig.link.enabled,
+        maxMb: serverConfig.link.maxMb,
+      },
       requestsPerWindow: serverConfig.rateLimit.max,
       windowSeconds: Math.round(serverConfig.rateLimit.windowMs / 1000),
       maxDurationSeconds: serverConfig.runtime.maxDurationSec,

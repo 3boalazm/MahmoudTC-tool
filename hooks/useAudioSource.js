@@ -4,7 +4,7 @@
  * hooks/useAudioSource.js
  * ---------------------------------------------------------------------------
  * Owns "the audio clip currently loaded in the studio" regardless of whether it
- * came from a file picker or the microphone.
+ * came from a file picker, the microphone, or a pasted link.
  *
  * Responsibilities:
  *   • create and always revoke the object URL used for playback
@@ -75,6 +75,33 @@ export function useAudioSource() {
     [releaseUrl],
   );
 
+  /**
+   * Adopt a link to a remote audio/video file. Nothing is downloaded in the
+   * browser (most hosts forbid it with CORS): the server fetches the file when
+   * the user transcribes, so there is no blob, no size and no waveform here —
+   * the link itself is used for the preview player.
+   */
+  const loadLink = useCallback(
+    (link, meta = {}) => {
+      if (!link) return null;
+      releaseUrl();
+      const next = {
+        blob: null,
+        url: link,
+        linkUrl: link,
+        name: meta.name || 'audio',
+        size: 0,
+        mimeType: 'audio/*',
+        durationSeconds: null,
+        origin: 'link',
+      };
+      setPeaks(null);
+      setAudio(next);
+      return next;
+    },
+    [releaseUrl],
+  );
+
   const clear = useCallback(() => {
     releaseUrl();
     setAudio(null);
@@ -134,5 +161,5 @@ export function useAudioSource() {
   }, [audio?.url, audio?.blob, audio?.size]);
 
 
-  return { audio, peaks, isDecoding: isDecoding && !peaks, load, clear, setAudio };
+  return { audio, peaks, isDecoding: isDecoding && !peaks, load, loadLink, clear, setAudio };
 }

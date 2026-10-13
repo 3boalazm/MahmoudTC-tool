@@ -176,7 +176,7 @@ export function InstallBanner() {
               if (outcome === 'unavailable') setSheet(true);
               if (outcome === 'accepted') setDismissed(true);
             }}
-            className="rounded-xl bg-iris-500 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-iris-400"
+            className="shine hover-lift press-scale rounded-xl bg-iris-500 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-iris-400"
           >
             {t('pwa.installButton')}
           </button>
@@ -259,7 +259,7 @@ function InstallSheet({ onClose }) {
         <button
           type="button"
           onClick={onClose}
-          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-iris-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-iris-400"
+          className="shine hover-lift press-scale mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-iris-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-iris-400"
         >
           <CheckIcon className="size-4" />
           {t('common.close')}

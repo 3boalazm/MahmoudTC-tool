@@ -109,7 +109,7 @@ export default function TranscriptPanel({
             <button
               type="button"
               onClick={handleCopy}
-              className="inline-flex items-center gap-2 rounded-xl bg-iris-500 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-iris-400 active:translate-y-px"
+              className="shine hover-lift press-scale inline-flex items-center gap-2 rounded-xl bg-iris-500 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-iris-400 active:translate-y-px"
             >
               {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
               {copied ? t('transcript.copied') : t('transcript.copy')}

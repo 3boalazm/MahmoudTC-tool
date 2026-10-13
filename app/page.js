@@ -31,6 +31,78 @@ export async function generateMetadata() {
   };
 }
 
+const WAVE_COLORS = [
+  'var(--color-iris-400)',
+  'var(--color-mint-400)',
+  'var(--color-amber-400)',
+  'var(--color-rose-400)',
+];
+
+/** Deterministic (no Math.random) so server and client render the same bars. */
+const waveHeight = (i) => Math.max(14, 30 + 22 * Math.sin(i * 0.7) + 14 * Math.sin(i * 1.9 + 1));
+
+/** Hero atmosphere: drifting colour orbs, breathing rings and a quiet waveform. */
+function HeroAtmosphere() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+      <div
+        className="blur-orb animate-blob-drift"
+        style={{
+          width: 420,
+          height: 420,
+          insetInlineStart: '4%',
+          top: '-18%',
+          background:
+            'radial-gradient(circle, color-mix(in oklab, var(--color-iris-500) 30%, transparent), transparent 70%)',
+        }}
+      />
+      <div
+        className="blur-orb animate-blob-drift"
+        style={{
+          width: 380,
+          height: 380,
+          insetInlineEnd: '2%',
+          bottom: '-20%',
+          animationDelay: '3s',
+          background:
+            'radial-gradient(circle, color-mix(in oklab, var(--color-mint-400) 20%, transparent), transparent 70%)',
+        }}
+      />
+      <div className="absolute inset-0 grid place-items-center">
+        <div className="relative size-0">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="animate-ring-breathe absolute rounded-full border border-ink-500/20"
+              style={{
+                width: 220 + i * 120,
+                height: 220 + i * 120,
+                left: -(220 + i * 120) / 2,
+                top: -(220 + i * 120) / 2,
+                animationDelay: `${i * 0.4}s`,
+                '--ring-opacity': 0.5 - i * 0.07,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="absolute inset-x-0 bottom-0 flex h-32 items-end justify-center gap-1 opacity-[0.14]">
+        {Array.from({ length: 32 }).map((_, i) => (
+          <div
+            key={i}
+            className="wave-bar w-1.5 rounded-full"
+            style={{
+              height: `${waveHeight(i)}%`,
+              background: WAVE_COLORS[i % WAVE_COLORS.length],
+              '--i': i,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const HIGHLIGHT_ICONS = [MicIcon, LayersIcon, ShieldIcon, DownloadIcon];
 const STEP_ICONS = [UploadIcon, BoltIcon, SparkIcon];
 
@@ -51,7 +123,8 @@ export default async function HomePage() {
     <div className="relative overflow-x-clip">
       <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-12 sm:px-6 lg:px-8">
         {/* ------------------------------------------------------------ hero */}
-        <section className="animate-rise text-center">
+        <section className="relative isolate text-center">
+          <HeroAtmosphere />
           <span className="inline-flex items-center gap-2 rounded-full border border-iris-400/25 bg-iris-500/10 px-3.5 py-1.5 text-[11px] font-medium text-iris-300">
             <span className="relative flex size-1.5">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-mint-400 opacity-75" />
@@ -60,7 +133,7 @@ export default async function HomePage() {
             {t('home.badge', { count: ENGINES.length })}
           </span>
 
-          <h1 className="text-balance-tight mx-auto mt-6 max-w-3xl text-4xl font-semibold leading-[1.12] tracking-tight text-ink-100 sm:text-5xl lg:text-6xl">
+          <h1 className="text-balance-tight mx-auto mt-6 max-w-3xl text-4xl font-medium leading-[1.12] tracking-tight text-ink-100 sm:text-5xl lg:text-6xl">
             {t('home.heroTitleLead')}
             <span className="bg-gradient-to-r from-iris-300 via-iris-400 to-mint-400 bg-clip-text text-transparent">
               {' '}
@@ -75,14 +148,14 @@ export default async function HomePage() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/studio"
-              className="inline-flex items-center gap-2 rounded-2xl bg-iris-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_-18px_rgba(111,108,255,0.9)] transition hover:bg-iris-400"
+              className="shine hover-lift press-scale glow-accent inline-flex items-center gap-2 rounded-2xl bg-iris-500 px-5 py-3 text-sm font-semibold text-white hover:bg-iris-400"
             >
               <BoltIcon className="size-4" />
               {t('home.ctaPrimary')}
             </Link>
             <Link
               href="/engines"
-              className="inline-flex items-center gap-2 rounded-2xl border border-ink-500/25 px-5 py-3 text-sm font-semibold text-ink-200 transition hover:border-iris-400/40 hover:text-ink-100"
+              className="hover-lift press-scale inline-flex items-center gap-2 rounded-2xl border border-ink-500/25 px-5 py-3 text-sm font-semibold text-ink-200 hover:border-iris-400/40 hover:text-ink-100"
             >
               <LayersIcon className="size-4" />
               {t('home.ctaSecondary')}
@@ -125,7 +198,8 @@ export default async function HomePage() {
               return (
                 <article
                   key={item.title}
-                  className="rounded-3xl border border-ink-500/15 bg-surface-1/50 p-5 transition hover:border-iris-400/25 hover:bg-surface-2/50"
+                  style={{ animationDelay: `${index * 70}ms` }}
+                  className="animate-stagger-in hover-lift rounded-3xl border border-ink-500/15 bg-surface-1/50 p-5 hover:border-iris-400/25 hover:bg-surface-2/50"
                 >
                   <span className="grid size-10 place-items-center rounded-2xl bg-surface-2 text-iris-300 ring-1 ring-ink-500/20">
                     <Icon className="size-5" />
@@ -142,7 +216,7 @@ export default async function HomePage() {
         <section className="mt-20" aria-labelledby="steps-heading">
           <h2
             id="steps-heading"
-            className="text-2xl font-semibold tracking-tight text-ink-100 sm:text-3xl"
+            className="text-2xl font-medium tracking-tight text-ink-100 sm:text-3xl"
           >
             {t('home.stepsTitle')}
           </h2>
@@ -152,7 +226,8 @@ export default async function HomePage() {
               return (
                 <li
                   key={step.title}
-                  className="rounded-3xl border border-ink-500/15 bg-surface-1/50 p-5"
+                  style={{ animationDelay: `${index * 90}ms` }}
+                  className="animate-stagger-in hover-lift rounded-3xl border border-ink-500/15 bg-surface-1/50 p-5"
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs text-ink-500">
@@ -173,7 +248,7 @@ export default async function HomePage() {
           <div className="max-w-2xl">
             <h2
               id="chain-heading"
-              className="text-2xl font-semibold tracking-tight text-ink-100 sm:text-3xl"
+              className="text-2xl font-medium tracking-tight text-ink-100 sm:text-3xl"
             >
               {t('home.chainTitle', { count: ENGINES.length - 1 })}
             </h2>
@@ -184,7 +259,8 @@ export default async function HomePage() {
             {ENGINES.map((engine, index) => (
               <li
                 key={engine.id}
-                className={`rounded-3xl border p-5 ${ACCENT[engine.accent] ?? ACCENT.iris}`}
+                style={{ animationDelay: `${index * 70}ms` }}
+                className={`animate-stagger-in hover-lift rounded-3xl border p-5 ${ACCENT[engine.accent] ?? ACCENT.iris}`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-ink-100">{engine.label}</h3>
@@ -217,7 +293,7 @@ export default async function HomePage() {
         <section className="mt-20" aria-labelledby="explore-heading">
           <h2
             id="explore-heading"
-            className="text-2xl font-semibold tracking-tight text-ink-100 sm:text-3xl"
+            className="text-2xl font-medium tracking-tight text-ink-100 sm:text-3xl"
           >
             {t('home.exploreTitle')}
           </h2>
@@ -226,7 +302,7 @@ export default async function HomePage() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="group rounded-3xl border border-ink-500/15 bg-surface-1/50 p-5 transition hover:border-iris-400/30 hover:bg-surface-2/50"
+                className="group hover-lift press-scale rounded-3xl border border-ink-500/15 bg-surface-1/50 p-5 hover:border-iris-400/30 hover:bg-surface-2/50"
               >
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-ink-100">
                   <WaveIcon className="size-4 text-iris-300" />

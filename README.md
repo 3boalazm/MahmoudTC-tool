@@ -329,6 +329,9 @@ required**. Set one to override the default for that engine.
 | --- | --- | --- |
 | `DEEPGRAM_MODEL` | `nova-2` | e.g. `nova-3` for broader language coverage. |
 | `MAX_UPLOAD_MB` | `4` on Vercel, `25` elsewhere | Ceiling for audio streamed *through* the API route. |
+| `ALLOW_MEDIA_LINKS` | `true` | Turns the "From a link" input on or off. |
+| `MAX_LINK_MB` | `50` on Vercel, `100` elsewhere | Largest file the server will download from a pasted link. |
+| `LINK_FETCH_TIMEOUT_MS` | `30000` | Download deadline for a link (taken out of the same function budget). |
 | `FUNCTION_BUDGET_MS` | `55000` on Vercel, `120000` elsewhere | Wall-clock budget for provider work inside one invocation. Provider timeouts are clamped to fit. |
 | `DEEPGRAM_TIMEOUT_MS` | `120000` | Per-request abort timeout. |
 | `GLADIA_TIMEOUT_MS` | `120000` | Per-request abort timeout. |
@@ -627,6 +630,7 @@ carries the reason) · `429` too many probe attempts.
 | --- | --- | --- |
 | `audio` | file | The clip. Required in multipart mode. |
 | `audioUrl` | string | Vercel Blob URL. Required in JSON mode; mutually exclusive with `audio`. |
+| `mediaUrl` | string | A public link to an audio/video file. The server downloads it (max `MAX_LINK_MB`) and transcribes the bytes, so every engine works. Mutually exclusive with `audio`/`audioUrl`. Direct file links only — YouTube-style pages and `.m3u8` playlists are rejected. |
 | `filename` | string | Optional, improves provider hints. |
 | `engine` | `auto` \| `deepgram` \| `gladia` \| `assemblyai` \| `speechmatics` | Default `auto` (the `ENGINE_ORDER` chain). A pinned engine is tried first, then the rest of the chain. |
 | `fallback` | `true` \| `false` | Default `true`. When `false` and an engine is pinned, only that engine runs. |
@@ -856,6 +860,7 @@ them into environment variables, or make the repository private if they matter.
 - **SSRF containment.** `audioUrl` is validated against the exact Vercel Blob
   hostname pattern, https-only, no credentials, no ports, no fragments, length
   capped. Arbitrary and internal URLs are rejected before any provider sees them.
+- **Link downloads (`mediaUrl`).** The one place the server fetches a caller's URL, so it is locked down in layers: http(s) on the default port only, no credentials, no internal hostnames; every address the name resolves to must be public (checked inside the socket `lookup`, so DNS rebinding cannot swap it afterwards); each redirect hop is re-validated (max 3); the body is capped by `Content-Length` and while streaming; one wall-clock deadline covers the whole download; and the response must be audio/video, not a page. Covered by `tests/remote-media.test.mjs` and the e2e suite. Turn it off with `ALLOW_MEDIA_LINKS=false`.
 - **Credential redaction.** Anything key-shaped is scrubbed before logging via
   `redact()`.
 - **Rate limiting** protects provider credits per client IP. It is an

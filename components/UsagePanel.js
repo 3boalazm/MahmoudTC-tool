@@ -303,10 +303,11 @@ export default function UsagePanel({ engines = [], enabled = true, engineOrder =
 
       {/* ----------------------------------------------------------- cards */}
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((card) => (
+        {cards.map((card, index) => (
           <article
             key={card.id}
-            className={`flex flex-col gap-3 rounded-2xl border p-4 ${card.accent.ring}`}
+            style={{ animationDelay: `${index * 70}ms` }}
+            className={`animate-stagger-in hover-lift flex flex-col gap-3 rounded-2xl border p-4 ${card.accent.ring}`}
           >
             <header className="flex items-start justify-between gap-2">
               <div className="min-w-0">

@@ -59,7 +59,7 @@ export default async function SettingsPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
       <header className="animate-rise max-w-2xl">
-        <h1 className="text-3xl font-semibold tracking-tight text-ink-100 sm:text-4xl">
+        <h1 className="text-3xl font-medium tracking-tight text-ink-100 sm:text-4xl">
           {t('settings.heading')}
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-400">{t('settings.subheading')}</p>

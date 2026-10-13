@@ -15,6 +15,7 @@ import {
   AlertIcon,
   ClockIcon,
   FileAudioIcon,
+  LinkIcon,
   MicIcon,
   StopIcon,
   TrashIcon,
@@ -25,6 +26,7 @@ import {
 import { useI18n } from '@/components/providers/I18nProvider.js';
 import { useRecorder } from '@/hooks/useRecorder';
 import { formatBytes, formatDuration } from '@/lib/client/format';
+import { parseMediaLink } from '@/lib/remote-media';
 
 const FILE_ACCEPT =
   'audio/*,video/mp4,.mp3,.m4a,.wav,.webm,.ogg,.oga,.opus,.flac,.aac,.amr,.aiff,.aif,.mp4,.mov';
@@ -34,18 +36,24 @@ export default function AudioSourceCard({
   peaks,
   isDecoding,
   onLoad,
+  onLoadLink,
   onClear,
   disabled = false,
   maxUploadMb = 25,
   /** { enabled, maxUploadMb } — large files go browser → Vercel Blob directly. */
   largeUploads = { enabled: false },
+  /** { enabled, maxMb } — a pasted link the server downloads itself. */
+  links = { enabled: true, maxMb: 50 },
   onBusyChange,
 }) {
   const { t } = useI18n();
   const [tab, setTab] = useState('file');
   const [isDragging, setIsDragging] = useState(false);
   const [fileError, setFileError] = useState(null);
+  const [linkValue, setLinkValue] = useState('');
+  const [linkError, setLinkError] = useState(null);
   const inputRef = useRef(null);
+  const showLinks = Boolean(links.enabled && onLoadLink);
 
   const recorder = useRecorder();
 
@@ -112,10 +120,34 @@ export default function AudioSourceCard({
     });
   }, [recorder.recording, onLoad]);
 
+  /* ------------------------------------------------------------------ link */
+  const submitLink = useCallback(
+    (event) => {
+      event.preventDefault();
+      const parsed = parseMediaLink(linkValue);
+      if (!parsed.ok) {
+        setLinkError(t(`source.link.${parsed.reason}`));
+        return;
+      }
+      setLinkError(null);
+      const lastSegment = parsed.url.pathname.split('/').filter(Boolean).pop() || '';
+      let name = parsed.url.hostname;
+      try {
+        name = decodeURIComponent(lastSegment) || name;
+      } catch {
+        name = lastSegment || name; // malformed %-escape: show it as typed
+      }
+      onLoadLink(parsed.url.toString(), { name });
+    },
+    [linkValue, onLoadLink, t],
+  );
+
   const clearAll = useCallback(() => {
     adoptedUrlRef.current = null;
     recorder.discard();
     setFileError(null);
+    setLinkError(null);
+    setLinkValue('');
     onClear();
     if (inputRef.current) inputRef.current.value = '';
   }, [onClear, recorder]);
@@ -159,7 +191,9 @@ export default function AudioSourceCard({
       <div
         role="tablist"
         aria-label={t('source.tabsLabel')}
-        className="mt-5 grid grid-cols-2 gap-1.5 rounded-2xl bg-surface-1/70 p-1.5 ring-1 ring-inset ring-ink-500/15"
+        className={`mt-5 grid gap-1.5 rounded-2xl bg-surface-1/70 p-1.5 ring-1 ring-inset ring-ink-500/15 ${
+          showLinks ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'
+        }`}
       >
         <TabButton
           active={tab === 'file'}
@@ -179,6 +213,17 @@ export default function AudioSourceCard({
           hint={t('source.recordHint')}
           panelId="panel-record"
         />
+        {showLinks ? (
+          <TabButton
+            active={tab === 'link'}
+            onClick={() => setTab('link')}
+            disabled={isLocked}
+            icon={<LinkIcon className="size-4" />}
+            label={t('source.linkTab')}
+            hint={t('source.linkHint')}
+            panelId="panel-link"
+          />
+        ) : null}
       </div>
 
       {/* ------------------------------------------------------ upload tab */}
@@ -360,6 +405,58 @@ export default function AudioSourceCard({
         )}
       </div>
 
+      {/* -------------------------------------------------------- link tab */}
+      {showLinks ? (
+        <div
+          id="panel-link"
+          role="tabpanel"
+          aria-labelledby="tab-link"
+          hidden={tab !== 'link'}
+          className="mt-4"
+        >
+          <form
+            onSubmit={submitLink}
+            className="rounded-3xl border border-ink-500/20 bg-surface-1/50 p-5"
+          >
+            <label htmlFor="media-link" className="block text-sm font-medium text-ink-200">
+              {t('source.linkLabel')}
+            </label>
+            <div className="mt-2.5 flex flex-col gap-2.5 sm:flex-row">
+              <input
+                id="media-link"
+                type="url"
+                inputMode="url"
+                dir="ltr"
+                autoComplete="off"
+                spellCheck={false}
+                value={linkValue}
+                disabled={isLocked}
+                onChange={(event) => {
+                  setLinkValue(event.target.value);
+                  if (linkError) setLinkError(null);
+                }}
+                placeholder="https://example.com/podcast.mp3"
+                aria-invalid={Boolean(linkError)}
+                aria-describedby={linkError ? 'media-link-error' : 'media-link-help'}
+                className="min-w-0 flex-1 rounded-2xl border border-ink-500/25 bg-surface-2/70 px-4 py-3 text-sm text-ink-100 placeholder:text-ink-500 focus:border-iris-400/60 disabled:cursor-not-allowed disabled:opacity-60"
+              />
+              <button
+                type="submit"
+                disabled={isLocked || !linkValue.trim()}
+                className="press-scale inline-flex items-center justify-center gap-2 rounded-2xl bg-iris-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-iris-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <LinkIcon className="size-4" />
+                {t('source.linkAdd')}
+              </button>
+            </div>
+            <p id="media-link-help" className="mt-3 text-xs leading-relaxed text-ink-400">
+              {t('source.linkHelp', { size: links.maxMb })}
+            </p>
+            {linkError ? <InlineError id="media-link-error" message={linkError} /> : null}
+          </form>
+        </div>
+      ) : null}
+
       {/* --------------------------------------------------- loaded audio */}
       {audio ? (
         <div className="mt-5 rounded-3xl border border-ink-500/20 bg-surface-1/60 p-4">
@@ -373,7 +470,13 @@ export default function AudioSourceCard({
                   {audio.name}
                 </p>
                 <p className="flex items-center gap-2 text-[11px] text-ink-400">
-                  <span>{formatBytes(audio.size)}</span>
+                  {audio.origin === 'link' ? (
+                    <span className="text-iris-300" dir="ltr">
+                      {linkHost(audio.linkUrl)}
+                    </span>
+                  ) : (
+                    <span>{formatBytes(audio.size)}</span>
+                  )}
                   <span aria-hidden="true">•</span>
                   <span className="inline-flex items-center gap-1">
                     <ClockIcon className="size-3" />
@@ -389,6 +492,12 @@ export default function AudioSourceCard({
                       <span className="text-mint-400">{t('source.fromMic')}</span>
                     </>
                   ) : null}
+                  {audio.origin === 'link' ? (
+                    <>
+                      <span aria-hidden="true">•</span>
+                      <span className="text-mint-400">{t('source.fromLink')}</span>
+                    </>
+                  ) : null}
                 </p>
               </div>
             </div>
@@ -397,6 +506,7 @@ export default function AudioSourceCard({
               src={audio.url}
               controls
               preload="metadata"
+              referrerPolicy="no-referrer"
               className="h-9 w-full max-w-[16rem]"
               title={t('source.preview')}
             />
@@ -434,9 +544,20 @@ function TabButton({ active, onClick, disabled, icon, label, hint, panelId }) {
   );
 }
 
-function InlineError({ message, onDismiss }) {
+/** Host part of a pasted link, for the "loaded" summary. */
+function linkHost(link) {
+  try {
+    return new URL(link).hostname;
+  } catch {
+    return link;
+  }
+}
+
+function InlineError({ message, onDismiss, id }) {
+  const { t } = useI18n();
   return (
     <div
+      id={id}
       role="alert"
       className="mt-3 flex items-start gap-2.5 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-400"
     >

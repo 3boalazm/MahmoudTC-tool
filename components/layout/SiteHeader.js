@@ -53,7 +53,7 @@ export default function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-ink-500/15 bg-canvas/80 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <Link href="/" className="group flex shrink-0 items-center gap-2.5">
-          <span className="grid size-9 place-items-center rounded-2xl bg-gradient-to-br from-iris-500 to-iris-700 text-white shadow-[0_10px_30px_-12px_rgba(111,108,255,0.9)]">
+          <span className="brand-glow-hover grid size-9 place-items-center rounded-2xl bg-gradient-to-br from-iris-500 to-iris-700 text-white shadow-[0_10px_30px_-12px_rgba(106,76,255,0.9)]">
             <WaveIcon className="size-5" />
           </span>
           <span className="leading-tight">
@@ -89,7 +89,7 @@ export default function SiteHeader() {
           <InstallButton />
           <Link
             href="/studio"
-            className="hidden items-center gap-2 rounded-xl bg-surface-2 px-3.5 py-2 text-xs font-semibold text-ink-100 ring-1 ring-inset ring-ink-500/25 transition hover:bg-surface-3 lg:inline-flex"
+            className="shine hover-lift press-scale hidden items-center gap-2 rounded-xl bg-surface-2 px-3.5 py-2 text-xs font-semibold text-ink-100 ring-1 ring-inset ring-ink-500/25 hover:bg-surface-3 lg:inline-flex"
           >
             <BoltIcon className="size-3.5 text-iris-300" />
             {t('nav.start')}

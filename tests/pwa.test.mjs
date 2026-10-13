@@ -45,7 +45,7 @@ test('the manifest is localised from the same cookies as the pages', () => {
   assert.match(manifestSource, /THEME_COOKIE|stt_theme/);
   assert.match(manifestSource, /dirFor\(/, 'dir must follow the locale');
   assert.match(manifestSource, /#f6f7fb/, 'light theme colour');
-  assert.match(manifestSource, /#070a13/, 'dark theme colour');
+  assert.match(manifestSource, /#090b0f/, 'dark theme colour');
 });
 
 test('every declared icon exists, is a real PNG, and matches its declared size', () => {

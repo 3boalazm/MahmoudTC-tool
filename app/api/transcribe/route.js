@@ -30,7 +30,9 @@ import {
   transcribeWithSpeechmatics,
 } from '@/lib/engines';
 import { ENGINE_MAP, normaliseEngineId } from '@/lib/engines-meta';
+import { MEDIA_EXTENSIONS, baseContentType } from '@/lib/remote-media';
 import { deleteBlob, isBlobEnabled, isOwnBlobUrl } from '@/lib/server/blob';
+import { MediaLinkError, fetchRemoteMedia } from '@/lib/server/fetch-media';
 import {
   engineAvailability,
   hasAnyEngine,
@@ -57,10 +59,7 @@ export const dynamic = 'force-dynamic';
  */
 export const maxDuration = 60;
 
-const ACCEPTED_EXTENSIONS = [
-  'mp3', 'mpga', 'wav', 'wave', 'm4a', 'mp4', 'mpeg', 'webm', 'ogg', 'oga',
-  'opus', 'flac', 'aac', 'amr', 'aiff', 'aif', '3gp', '3gpp', 'mkv', 'mov',
-];
+const ACCEPTED_EXTENSIONS = MEDIA_EXTENSIONS;
 
 /** Audio/video MIME types both engines accept. */
 const ACCEPTED_MIME =
@@ -274,6 +273,9 @@ async function parseRequest(request) {
       };
     }
     const values = payload ?? {};
+    if (typeof values.mediaUrl === 'string' && values.mediaUrl.trim()) {
+      return resolveMediaLink(values.mediaUrl, (key) => values[key]);
+    }
     return resolveRemoteSource(values, (key) => values[key]);
   }
 
@@ -290,6 +292,12 @@ async function parseRequest(request) {
         detail: redact(String(error?.message || error)),
       }),
     };
+  }
+
+  // A pasted audio/video link: the server downloads it (see resolveMediaLink).
+  const mediaUrl = form.get('mediaUrl');
+  if (typeof mediaUrl === 'string' && mediaUrl.trim()) {
+    return resolveMediaLink(mediaUrl, (key) => form.get(key));
   }
 
   // A multipart request can still describe a remote object (the studio uses
@@ -402,6 +410,67 @@ function resolveRemoteSource(payload, getField) {
     decodeURIComponent(audioUrl.split('/').pop() || 'audio');
 
   return { getField, buffer: null, filename, contentType: 'audio/*', audioUrl };
+}
+
+/**
+ * Download a pasted audio/video link on the server and hand it to the engines
+ * as bytes — so every provider works (Speechmatics cannot read URLs) and the
+ * same size/type rules apply as for an upload. All the SSRF defences live in
+ * `fetchRemoteMedia`; this only maps its failures onto API errors.
+ *
+ * @param {string} link
+ * @param {(key: string) => unknown} getField reads the remaining request settings
+ */
+async function resolveMediaLink(link, getField) {
+  if (!serverConfig.link.enabled) {
+    return {
+      error: errorResponse({
+        status: 403,
+        code: ERROR_CODES.BAD_REQUEST,
+        message: 'Transcribing from a link is turned off on this deployment. Upload the file instead.',
+      }),
+    };
+  }
+
+  try {
+    const media = await fetchRemoteMedia(link, {
+      maxBytes: serverConfig.link.maxMb * 1024 * 1024,
+      timeoutMs: serverConfig.link.timeoutMs,
+      allowPrivate: serverConfig.link.allowPrivateHosts,
+    });
+
+    const declared = baseContentType(media.contentType);
+    const contentType =
+      /^(audio|video)\//.test(declared)
+        ? declared
+        : guessContentTypeFromName(media.filename) || 'application/octet-stream';
+
+    return {
+      getField,
+      buffer: media.buffer,
+      filename: media.filename,
+      contentType,
+      audioUrl: null,
+    };
+  } catch (error) {
+    if (error instanceof MediaLinkError) {
+      return {
+        error: errorResponse({
+          status: error.status,
+          code: error.code === 'TIMEOUT' ? ERROR_CODES.TIMEOUT : ERROR_CODES.BAD_REQUEST,
+          message: error.message,
+        }),
+      };
+    }
+    return {
+      error: errorResponse({
+        status: 502,
+        code: ERROR_CODES.BAD_REQUEST,
+        message: 'That link could not be downloaded.',
+        detail: redact(String(error?.message || error)),
+      }),
+    };
+  }
 }
 
 /**

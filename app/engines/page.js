@@ -47,7 +47,7 @@ export default async function EnginesPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
       <header className="animate-rise max-w-2xl">
-        <h1 className="text-3xl font-semibold tracking-tight text-ink-100 sm:text-4xl">
+        <h1 className="text-3xl font-medium tracking-tight text-ink-100 sm:text-4xl">
           {t('engines.heading')}
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-400">{t('engines.subheading')}</p>
@@ -58,7 +58,11 @@ export default async function EnginesPage() {
         {ENGINES.map((engine, index) => {
           const accent = ACCENT[engine.accent] ?? ACCENT.iris;
           return (
-            <article key={engine.id} className={`rounded-3xl border p-5 ${accent}`}>
+            <article
+              key={engine.id}
+              style={{ animationDelay: `${index * 70}ms` }}
+              className={`animate-stagger-in hover-lift rounded-3xl border p-5 ${accent}`}
+            >
               <header className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-base font-semibold text-ink-100">{engine.label}</h2>
@@ -189,7 +193,7 @@ export default async function EnginesPage() {
       <div className="mt-10 flex flex-wrap gap-3">
         <Link
           href="/studio"
-          className="inline-flex items-center gap-2 rounded-2xl bg-iris-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-iris-400"
+          className="shine hover-lift press-scale inline-flex items-center gap-2 rounded-2xl bg-iris-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-iris-400"
         >
           <BoltIcon className="size-4" />
           {t('home.ctaPrimary')}
