@@ -7,7 +7,7 @@ import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 const config = [
   ...nextCoreWebVitals,
   {
-    ignores: ['.next/**', 'node_modules/**', 'coverage/**', 'tests/**'],
+    ignores: ['.next/**', 'node_modules/**', 'coverage/**', 'tests/**', 'erp-proposal/**'],
   },
   {
     rules: {
