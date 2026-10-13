@@ -240,7 +240,10 @@ export async function POST(request) {
     status: httpStatusFor(lastError),
     code,
     message: buildFailureMessage({ code, lastError, attempts, bothTried, requestedEngine }),
-    detail: serverConfig.isProduction ? undefined : lastError?.message,
+    // Provider errors are useful for debugging rejected jobs. Redact credentials
+    // before returning the detail so production users can distinguish config,
+    // model, URL-fetch, and unsupported-media errors without exposing secrets.
+    detail: lastError?.message ? redact(lastError.message) : undefined,
     attempts: attempts.map(({ detail: _detail, ...rest }) => rest),
   });
 }
