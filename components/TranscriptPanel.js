@@ -40,7 +40,6 @@ import {
   formatConfidence,
   formatDuration,
   formatElapsed,
-  formatTranscriptSegments,
   modelLabel,
 } from '@/lib/client/format';
 
