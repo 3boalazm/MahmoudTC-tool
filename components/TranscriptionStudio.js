@@ -37,7 +37,7 @@ import {
   requestTranscription,
   uploadToBlob,
 } from '@/lib/client/api';
-import { engineLabel, formatBytes, formatDuration, modelLabel } from '@/lib/client/format';
+import { engineLabel, formatBytes, formatDuration, formatElapsed, modelLabel } from '@/lib/client/format';
 import { DEFAULT_ENGINE_ORDER, ENGINES, ENGINE_IDS } from '@/lib/engines-meta';
 
 /**
