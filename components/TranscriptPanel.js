@@ -55,7 +55,6 @@ export default function TranscriptPanel({
   onRetry,
   onClear,
   onCancel,
-  onTextChange,
 }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
