@@ -39,6 +39,3 @@ Thumbs.db
 # Misc
 .vercel
 .turbo
-
-# Stray patch exports
-*.patch

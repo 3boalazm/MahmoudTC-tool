@@ -285,7 +285,7 @@ export default function CredentialsPanel({ initialState = null }) {
                     type="button"
                     onClick={() => run(engine.id, 'save', { key: value })}
                     disabled={!value.trim() || busy !== null}
-                    className="inline-flex items-center gap-2 rounded-xl bg-iris-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-iris-400 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="shine hover-lift press-scale inline-flex items-center gap-2 rounded-xl bg-iris-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-iris-400 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {saving ? <SpinnerIcon className="size-3.5 animate-spin" /> : <CheckIcon className="size-3.5" />}
                     {t('settings.actions.save')}

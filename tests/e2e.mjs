@@ -315,6 +315,46 @@ async function transcribe(
   return { status: response.status, body: await response.json().catch(() => null) };
 }
 
+/** POST a pasted link (`mediaUrl`) instead of a file. */
+async function transcribeLink(base, mediaUrl, { fields = {} } = {}) {
+  const form = new FormData();
+  form.append('mediaUrl', mediaUrl);
+  for (const [key, value] of Object.entries(fields)) form.append(key, value);
+
+  const response = await fetch(`${base}/api/transcribe`, { method: 'POST', body: form });
+  return { status: response.status, body: await response.json().catch(() => null) };
+}
+
+/** A tiny web server standing in for "somewhere on the internet" hosting media. */
+async function startMediaHost() {
+  const { createServer } = await import('node:http');
+  const server = createServer((request, response) => {
+    if (request.url === '/clip.wav') {
+      response.writeHead(200, { 'content-type': 'audio/wav' });
+      return response.end(wav);
+    }
+    if (request.url === '/go') {
+      response.writeHead(302, { location: '/clip.wav' });
+      return response.end();
+    }
+    if (request.url === '/page.html') {
+      response.writeHead(200, { 'content-type': 'text/html' });
+      return response.end('<html><body>not audio</body></html>');
+    }
+    if (request.url === '/big.wav') {
+      response.writeHead(200, { 'content-type': 'audio/wav' });
+      return response.end(Buffer.alloc(2 * 1024 * 1024, 1));
+    }
+    response.writeHead(404);
+    return response.end();
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  return {
+    url: `http://127.0.0.1:${server.address().port}`,
+    close: () => new Promise((done) => server.close(done)),
+  };
+}
+
 /**
  * A minimal cookie jar, so a test can play the part of one browser: save a key,
  * use it, disconnect, and prove the deployment key comes back.
@@ -1148,6 +1188,139 @@ await scenario('the blob upload route refuses to mint tokens when unconfigured',
 });
 
 await vercel.close();
+
+/* ------------------------------------------------------- link input stage */
+
+console.log('\nTranscribe from a link');
+
+// The main instance is already closed by now, so this block boots its own.
+const linkDefault = await startApp({
+  deepgramBase: `${deepgramMock.url}/v1/listen`,
+  gladiaBase: `${gladiaMock.url}/v2`,
+  assemblyaiBase: assemblyaiMock.url,
+  speechmaticsBase: speechmaticsMock.url,
+});
+
+await scenario('health advertises the link feature and its size limit', async () => {
+  const body = await (await fetch(`${linkDefault.base}/api/health`)).json();
+  assert.equal(body.limits.link.enabled, true);
+  assert.ok(body.limits.link.maxMb > 0);
+});
+
+await scenario('a link to a private or internal address is refused', async () => {
+  for (const link of [
+    'http://127.0.0.1/a.mp3',
+    'http://169.254.169.254/latest/meta-data/',
+    'http://localhost/a.mp3',
+    'http://[::1]/a.mp3',
+  ]) {
+    const { status, body } = await transcribeLink(linkDefault.base, link);
+    assert.equal(status, 400, link);
+    assert.equal(body.error.code, 'BAD_REQUEST');
+    assert.match(body.error.message, /private or internal/i);
+  }
+});
+
+await scenario('a web-page link (YouTube) is refused with a helpful message', async () => {
+  const { status, body } = await transcribeLink(linkDefault.base, 'https://www.youtube.com/watch?v=abc');
+  assert.equal(status, 400);
+  assert.match(body.error.message, /web page/i);
+});
+
+await scenario('only http(s) links are accepted', async () => {
+  const { status, body } = await transcribeLink(linkDefault.base, 'file:///etc/passwd');
+  assert.equal(status, 400);
+  assert.match(body.error.message, /http/i);
+});
+
+await scenario('an unreachable public link reports a clear error', async () => {
+  // .invalid is reserved (RFC 2606) and never resolves.
+  const { status, body } = await transcribeLink(linkDefault.base, 'https://no-such-host.invalid/a.mp3');
+  assert.equal(status, 502);
+  assert.match(body.error.message, /could not reach/i);
+});
+
+await linkDefault.close();
+
+const mediaHost = await startMediaHost();
+const linkApp = await startApp({
+  deepgramBase: `${deepgramMock.url}/v1/listen`,
+  gladiaBase: `${gladiaMock.url}/v2`,
+  assemblyaiBase: assemblyaiMock.url,
+  speechmaticsBase: speechmaticsMock.url,
+  extraEnv: { MEDIA_LINK_ALLOW_PRIVATE_FOR_TESTS: '1', MAX_LINK_MB: '1' },
+});
+
+await scenario('a pasted link is downloaded by the server and transcribed', async () => {
+  await setModes({ deepgram: 'ok', gladia: 'ok', assemblyai: 'ok', speechmatics: 'ok' });
+  const { status, body } = await transcribeLink(linkApp.base, `${mediaHost.url}/clip.wav`);
+  assert.equal(status, 200, JSON.stringify(body));
+  assert.equal(body.ok, true);
+  assert.ok(body.text.length > 0);
+  assert.equal(body.engine, 'deepgram');
+});
+
+await scenario('a link works with every engine, including Speechmatics (bytes only)', async () => {
+  await setModes({ deepgram: 'ok', gladia: 'ok', assemblyai: 'ok', speechmatics: 'ok' });
+  const { status, body } = await transcribeLink(linkApp.base, `${mediaHost.url}/clip.wav`, {
+    fields: { engine: 'speechmatics', fallback: 'false' },
+  });
+  assert.equal(status, 200, JSON.stringify(body));
+  assert.equal(body.engine, 'speechmatics');
+});
+
+await scenario('failover still applies to a linked file', async () => {
+  await setModes({ deepgram: 'rate-limit', gladia: 'ok' });
+  const { status, body } = await transcribeLink(linkApp.base, `${mediaHost.url}/clip.wav`);
+  assert.equal(status, 200, JSON.stringify(body));
+  assert.equal(body.engine, 'gladia');
+  assert.equal(body.fallbackUsed, true);
+});
+
+await scenario('a link that redirects to the file is followed', async () => {
+  await setModes({ deepgram: 'ok' });
+  const { status, body } = await transcribeLink(linkApp.base, `${mediaHost.url}/go`);
+  assert.equal(status, 200, JSON.stringify(body));
+});
+
+await scenario('a link to an HTML page is rejected as not media', async () => {
+  const { status, body } = await transcribeLink(linkApp.base, `${mediaHost.url}/page.html`);
+  assert.equal(status, 415);
+  assert.match(body.error.message, /audio or video file/i);
+});
+
+await scenario('a missing file reports the link as not found', async () => {
+  const { status, body } = await transcribeLink(linkApp.base, `${mediaHost.url}/nope.mp3`);
+  assert.equal(status, 502);
+  assert.match(body.error.message, /not found/i);
+});
+
+await scenario('a file over the link size limit is refused before transcription', async () => {
+  await setModes({ deepgram: 'ok' });
+  const { status, body } = await transcribeLink(linkApp.base, `${mediaHost.url}/big.wav`);
+  assert.equal(status, 413);
+  assert.match(body.error.message, /1 MB limit/i);
+});
+
+await linkApp.close();
+
+const linksOff = await startApp({
+  deepgramBase: `${deepgramMock.url}/v1/listen`,
+  gladiaBase: `${gladiaMock.url}/v2`,
+  extraEnv: { ALLOW_MEDIA_LINKS: 'false', MEDIA_LINK_ALLOW_PRIVATE_FOR_TESTS: '1' },
+});
+
+await scenario('links can be switched off for a deployment', async () => {
+  const health = await (await fetch(`${linksOff.base}/api/health`)).json();
+  assert.equal(health.limits.link.enabled, false);
+
+  const { status, body } = await transcribeLink(linksOff.base, `${mediaHost.url}/clip.wav`);
+  assert.equal(status, 403);
+  assert.match(body.error.message, /turned off/i);
+});
+
+await linksOff.close();
+await mediaHost.close();
 
 /* --------------------------------------------------- rate-limit stage */
 

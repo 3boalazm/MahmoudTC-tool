@@ -45,7 +45,7 @@ export default async function UsagePage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
       <header className="animate-rise max-w-2xl">
-        <h1 className="text-3xl font-semibold tracking-tight text-ink-100 sm:text-4xl">
+        <h1 className="text-3xl font-medium tracking-tight text-ink-100 sm:text-4xl">
           {t('usage.heading')}
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-400">{t('usage.body')}</p>
@@ -138,7 +138,7 @@ export default async function UsagePage() {
 
           <Link
             href="/studio"
-            className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-iris-500 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-iris-400"
+            className="shine hover-lift press-scale mt-4 inline-flex items-center gap-2 rounded-2xl bg-iris-500 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-iris-400"
           >
             {t('home.ctaPrimary')}
           </Link>

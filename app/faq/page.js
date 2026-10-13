@@ -26,17 +26,18 @@ export default async function FaqPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
       <header className="animate-rise max-w-2xl">
-        <h1 className="text-3xl font-semibold tracking-tight text-ink-100 sm:text-4xl">
+        <h1 className="text-3xl font-medium tracking-tight text-ink-100 sm:text-4xl">
           {t('faq.heading')}
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-400">{t('faq.subheading')}</p>
       </header>
 
       <div className="mt-8 grid gap-3 lg:grid-cols-2">
-        {items.map((item) => (
+        {items.map((item, index) => (
           <details
             key={item.q}
-            className="group rounded-3xl border border-ink-500/15 bg-surface-1/50 p-5 transition open:border-iris-400/25 open:bg-surface-2/50"
+            style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}
+            className="group animate-stagger-in hover-lift rounded-3xl border border-ink-500/15 bg-surface-1/50 p-5 open:border-iris-400/25 open:bg-surface-2/50 hover:border-iris-400/20"
           >
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-semibold text-ink-100 marker:hidden">
               {item.q}
@@ -56,7 +57,7 @@ export default async function FaqPage() {
       <section className="mt-14" aria-labelledby="troubleshoot-heading">
         <h2
           id="troubleshoot-heading"
-          className="text-2xl font-semibold tracking-tight text-ink-100 sm:text-3xl"
+          className="text-2xl font-medium tracking-tight text-ink-100 sm:text-3xl"
         >
           {t('faq.troubleshootTitle')}
         </h2>
@@ -96,7 +97,7 @@ export default async function FaqPage() {
         </div>
         <Link
           href="/studio"
-          className="inline-flex items-center gap-2 rounded-2xl bg-iris-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-iris-400"
+          className="shine hover-lift press-scale inline-flex items-center gap-2 rounded-2xl bg-iris-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-iris-400"
         >
           <BoltIcon className="size-4" />
           {t('home.ctaPrimary')}

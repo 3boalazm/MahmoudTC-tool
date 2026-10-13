@@ -37,8 +37,8 @@ export default async function manifest() {
     display: 'standalone',
     display_override: ['standalone', 'minimal-ui'],
     orientation: 'any',
-    background_color: theme === 'light' ? '#f6f7fb' : '#070a13',
-    theme_color: theme === 'light' ? '#f6f7fb' : '#070a13',
+    background_color: theme === 'light' ? '#f6f7fb' : '#090b0f',
+    theme_color: theme === 'light' ? '#f6f7fb' : '#090b0f',
     categories: ['productivity', 'utilities'],
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

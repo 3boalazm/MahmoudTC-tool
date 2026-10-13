@@ -8,36 +8,39 @@
    in the app reads them, so both themes stay in sync automatically.
    ========================================================================== */
 @theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  /* Body is IBM Plex (Arabic face first in RTL — see `:root[dir='rtl']`),
+     headings are thmanyah Serif Display, numbers and code stay monospace. */
+  --font-sans: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-thmanyah-serif), var(--font-ibm-plex-sans), serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 
   /* Canvas + surfaces */
-  --color-canvas: #070a13;
-  --color-surface-1: #0c101d;
-  --color-surface-2: #111726;
-  --color-surface-3: #171e30;
+  --color-canvas: #090b0f;
+  --color-surface-1: #0e1117;
+  --color-surface-2: #12161d;
+  --color-surface-3: #1a2029;
 
   /* Text ramp */
-  --color-ink-100: #f5f7ff;
-  --color-ink-200: #d7dcec;
-  --color-ink-300: #a9b2cb;
-  --color-ink-400: #7b86a3;
-  --color-ink-500: #5a6480;
+  --color-ink-100: #f5f7fa;
+  --color-ink-200: #d3d9e2;
+  --color-ink-300: #a6afbc;
+  --color-ink-400: #7f8896;
+  --color-ink-500: #5c6572;
 
   /* Primary accent — iris */
-  --color-iris-300: #b3b6ff;
-  --color-iris-400: #8f92ff;
-  --color-iris-500: #6f6cff;
-  --color-iris-600: #5a4fe6;
-  --color-iris-700: #4638bb;
+  --color-iris-300: #9b7bff;
+  --color-iris-400: #7f65ff;
+  --color-iris-500: #6a4cff;
+  --color-iris-600: #5638e6;
+  --color-iris-700: #4529c2;
 
-  /* Signal colours */
-  --color-mint-400: #34e0b0;
-  --color-mint-500: #12c79a;
-  --color-amber-400: #ffc861;
-  --color-amber-500: #f0a72c;
-  --color-rose-400: #ff7a90;
-  --color-rose-500: #f0506e;
+  /* Signal colours — mint is the "this works / this is playing" teal */
+  --color-mint-400: #54d6c7;
+  --color-mint-500: #3bbfb0;
+  --color-amber-400: #f5b971;
+  --color-amber-500: #e19e4e;
+  --color-rose-400: #ff7d8a;
+  --color-rose-500: #ef5a6b;
 
   /* Motion */
   --animate-rise: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -96,6 +99,19 @@
 @layer base {
   :root {
     color-scheme: dark;
+  }
+
+  /* Arabic first in RTL, with the Latin face as fallback for embedded Latin
+     (model names, formats, numbers). */
+  :root[dir='rtl'] {
+    --font-sans: var(--font-ibm-plex-sans-arabic), var(--font-ibm-plex-sans), ui-sans-serif,
+      system-ui, sans-serif;
+    --font-display: var(--font-thmanyah-serif), var(--font-ibm-plex-sans-arabic), serif;
+  }
+
+  h1,
+  h2 {
+    font-family: var(--font-display);
   }
 
   html {
@@ -189,6 +205,209 @@
 
 @utility text-balance-tight {
   text-wrap: balance;
+}
+
+/* ==========================================================================
+   Motion + depth kit
+   --------------------------------------------------------------------------
+   Small, composable effects: add them to any element.
+     shine / hover-lift / press-scale   buttons and cards
+     glow-accent / glow-audio            soft ambient glow for CTAs
+     blur-orb + animate-blob-drift       hero atmosphere
+     animate-ring-breathe, wave-bar      hero atmosphere
+     animate-stagger-in                  lists (set `animation-delay` inline)
+     animate-shake                       a rejected action
+   ========================================================================== */
+@keyframes stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes blob-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(3%, -4%) scale(1.08);
+  }
+}
+
+@keyframes ring-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: var(--ring-opacity, 0.5);
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: calc(var(--ring-opacity, 0.5) * 1.6);
+  }
+}
+
+@keyframes wave-dance {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shine-sweep {
+  from {
+    transform: translateX(-130%) skewX(-12deg);
+  }
+  to {
+    transform: translateX(230%) skewX(-12deg);
+  }
+}
+
+@keyframes micro-shake {
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+  20%,
+  80% {
+    transform: translateX(2px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-3px);
+  }
+  40%,
+  60% {
+    transform: translateX(3px);
+  }
+}
+
+.animate-stagger-in {
+  animation: stagger-in 350ms ease-out both;
+}
+
+.animate-blob-drift {
+  animation: blob-drift 16s ease-in-out infinite;
+}
+
+.animate-ring-breathe {
+  animation: ring-breathe 11s ease-in-out infinite;
+}
+
+.animate-shake {
+  animation: micro-shake 220ms ease-out;
+}
+
+.wave-bar {
+  transform-origin: bottom;
+  animation: wave-dance 1.3s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+
+.blur-orb {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(70px);
+  pointer-events: none;
+}
+
+/* A single diagonal light sweep on hover — a response to attention, not a loop. */
+.shine {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255, 255, 255, 0.22) 45%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0.22) 55%,
+    transparent
+  );
+  transform: translateX(-130%) skewX(-12deg);
+  pointer-events: none;
+}
+
+.shine:hover::after {
+  animation: shine-sweep 850ms ease;
+}
+
+.hover-lift {
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    background-color 200ms ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+.press-scale {
+  transition: transform 120ms ease;
+}
+
+.press-scale:active {
+  transform: scale(0.97);
+}
+
+.glow-accent {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-iris-500) 35%, transparent),
+    0 8px 30px color-mix(in oklab, var(--color-iris-500) 28%, transparent);
+}
+
+.glow-audio {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-mint-400) 40%, transparent),
+    0 8px 24px color-mix(in oklab, var(--color-mint-400) 22%, transparent);
+}
+
+.brand-glow-hover {
+  transition: filter 250ms ease;
+}
+
+.brand-glow-hover:hover {
+  filter: drop-shadow(0 0 10px var(--color-iris-300));
+}
+
+/* Timelines and counters stay left-to-right even in an RTL layout. */
+.ltr-metric {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-stagger-in,
+  .animate-blob-drift,
+  .animate-ring-breathe,
+  .animate-shake,
+  .wave-bar,
+  .shine:hover::after {
+    animation: none !important;
+  }
+
+  .hover-lift:hover {
+    transform: none;
+  }
 }
 
 /* ==========================================================================

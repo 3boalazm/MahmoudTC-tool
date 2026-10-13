@@ -69,6 +69,7 @@ export default function TranscriptionStudio() {
   const [limits, setLimits] = useState({ maxUploadMb: 25 });
   /** Large-file mode (browser → Vercel Blob → provider URL) when configured. */
   const [largeUploads, setLargeUploads] = useState({ enabled: false });
+  const [links, setLinks] = useState({ enabled: true, maxMb: 50 });
   const [fallbackOptionEnabled, setFallbackOptionEnabled] = useState(true);
   const [healthChecked, setHealthChecked] = useState(false);
   /** True when at least one key came from this browser's settings page. */
@@ -87,7 +88,7 @@ export default function TranscriptionStudio() {
   const timerRef = useRef(null);
   const transcriptRef = useRef(null);
 
-  const { audio, peaks, isDecoding, load, clear } = useAudioSource();
+  const { audio, peaks, isDecoding, load, loadLink, clear } = useAudioSource();
 
   /* ---------------------------------------------------- deployment probe */
   useEffect(() => {
@@ -117,6 +118,12 @@ export default function TranscriptionStudio() {
             maxUploadMb: payload.limits.maxUploadMb,
             platformBodyLimitMb: payload.limits.platformBodyLimitMb ?? null,
             maxDurationSeconds: payload.limits.maxDurationSeconds ?? null,
+          });
+        }
+        if (payload.limits?.link) {
+          setLinks({
+            enabled: Boolean(payload.limits.link.enabled),
+            maxMb: payload.limits.link.maxMb ?? 50,
           });
         }
         setLargeUploads(
@@ -183,8 +190,9 @@ export default function TranscriptionStudio() {
        * larger is pushed to Vercel Blob first and the route receives a URL.
        * Local recordings are always small enough to go inline.
        */
+      const isLink = audio.origin === 'link';
       const exceedsInline =
-        audio.size > limits.maxUploadMb * 1024 * 1024 && largeUploads.enabled;
+        !isLink && audio.size > limits.maxUploadMb * 1024 * 1024 && largeUploads.enabled;
 
       let audioUrl = null;
       if (exceedsInline) {
@@ -198,8 +206,10 @@ export default function TranscriptionStudio() {
       }
 
       const payload = await requestTranscription({
-        audio: audioUrl ? undefined : audio.blob,
+        // A pasted link is downloaded by the server; nothing is sent from here.
+        audio: audioUrl || isLink ? undefined : audio.blob,
         audioUrl,
+        mediaUrl: isLink ? audio.linkUrl : undefined,
         filename: audio.name,
         engine,
         fallback: fallback && fallbackOptionEnabled,
@@ -336,10 +346,12 @@ export default function TranscriptionStudio() {
         peaks={peaks}
         isDecoding={isDecoding}
         onLoad={load}
+        onLoadLink={loadLink}
         onClear={clear}
         disabled={status === 'running'}
         maxUploadMb={limits.maxUploadMb}
         largeUploads={largeUploads}
+        links={links}
         onBusyChange={setIsRecordingBusy}
       />
 
@@ -368,8 +380,12 @@ export default function TranscriptionStudio() {
               {audio ? (
                 <>
                   <span className="max-w-[14rem] truncate font-medium text-ink-200">{audio.name}</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{formatBytes(audio.size)}</span>
+                  {audio.size > 0 ? (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span>{formatBytes(audio.size)}</span>
+                    </>
+                  ) : null}
                   {audio.durationSeconds ? (
                     <>
                       <span aria-hidden="true">·</span>
@@ -430,7 +446,7 @@ export default function TranscriptionStudio() {
                     ? t('studio.runHintRecording')
                     : t('studio.runHintNoAudio')
               }
-              className="group inline-flex min-w-[13rem] items-center justify-center gap-2.5 rounded-2xl bg-iris-500 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_18px_40px_-18px_rgba(111,108,255,0.9)] transition hover:bg-iris-400 active:translate-y-px disabled:cursor-not-allowed disabled:bg-surface-3 disabled:text-ink-500 disabled:shadow-none"
+              className="press-scale group inline-flex min-w-[13rem] items-center justify-center gap-2.5 rounded-2xl bg-iris-500 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_18px_40px_-18px_rgba(111,108,255,0.9)] transition hover:bg-iris-400 active:translate-y-px disabled:cursor-not-allowed disabled:bg-surface-3 disabled:text-ink-500 disabled:shadow-none"
             >
               {status === 'running' ? (
                 <>
