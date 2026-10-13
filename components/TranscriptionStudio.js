@@ -130,7 +130,7 @@ export default function TranscriptionStudio() {
           payload.largeUploads?.enabled
             ? {
                 enabled: true,
-                maxUploadMb: payload.largeUploads.maxUploadMb ?? 200,
+                maxUploadMb: payload.largeUploads.maxUploadMb ?? 300,
                 deletedAfterUse: payload.largeUploads.deletedAfterUse ?? true,
               }
             : { enabled: false },
