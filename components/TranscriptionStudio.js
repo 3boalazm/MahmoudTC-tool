@@ -367,6 +367,29 @@ export default function TranscriptionStudio() {
         disabled={status === 'running'}
       />
 
+      <section
+        aria-label={t('studio.ownership.aria')}
+        className="relative overflow-hidden rounded-3xl border border-iris-400/25 bg-gradient-to-r from-iris-500/10 via-surface-1/80 to-mint-400/10 px-5 py-4 shadow-[0_16px_45px_-32px_rgba(111,108,255,0.65)] sm:px-6"
+      >
+        <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-10 size-32 rounded-full bg-iris-400/10 blur-2xl" />
+        <div className="relative flex items-center gap-4">
+          <div className="grid size-12 shrink-0 place-items-center rounded-2xl border border-iris-300/20 bg-surface-1/80 text-iris-300 shadow-inner">
+            <SparkIcon className="size-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-iris-300">
+              {t('studio.ownership.eyebrow')}
+            </p>
+            <h2 className="mt-1 text-sm font-semibold tracking-tight text-ink-100 sm:text-base">
+              {t('studio.ownership.title')}
+            </h2>
+            <p className="mt-1 text-xs leading-relaxed text-ink-300 sm:text-sm">
+              {t('studio.ownership.ownerLabel')} <span className="font-semibold text-ink-100">Mahmoud Aboalazm</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* ------------------------------------------------------- action bar */}
       <section
         id="run"
