@@ -233,9 +233,9 @@ export default function TranscriptionStudio() {
             if (!speakerNumbers.has(segment.speaker)) {
               speakerNumbers.set(segment.speaker, speakerNumbers.size + 1);
             }
-            return `${t('transcript.speaker', { number: speakerNumbers.get(segment.speaker) })}\\n${segment.text}`;
+            return `${t('transcript.speaker', { number: speakerNumbers.get(segment.speaker) })}\n${segment.text}`;
           })
-          .join('\\n\\n');
+          .join('\n\n');
         setText(formatted || payload.text || '');
       } else {
         setText(payload.text ?? '');
