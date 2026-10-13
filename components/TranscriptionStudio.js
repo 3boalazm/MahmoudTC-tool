@@ -80,6 +80,7 @@ export default function TranscriptionStudio() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [text, setText] = useState('');
+  const [speakerNames, setSpeakerNames] = useState({});
   const [showSpeakers, setShowSpeakers] = useState(true);
   const [showTimeline, setShowTimeline] = useState(true);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -91,6 +92,18 @@ export default function TranscriptionStudio() {
   const transcriptRef = useRef(null);
 
   const { audio, peaks, isDecoding, load, loadLink, clear } = useAudioSource();
+
+  const speakers = useMemo(() => {
+    const seen = new Set();
+    const entries = [];
+    for (const segment of result?.segments ?? []) {
+      const id = segment?.speaker;
+      if (id === null || id === undefined || id === '' || seen.has(id)) continue;
+      seen.add(id);
+      entries.push({ id, number: entries.length + 1 });
+    }
+    return entries;
+  }, [result?.segments]);
 
   /* ---------------------------------------------------- deployment probe */
   useEffect(() => {
@@ -220,6 +233,7 @@ export default function TranscriptionStudio() {
         signal: controller.signal,
       });
 
+      setSpeakerNames({});
       setResult({ ...payload, sourceName: audio.name });
       setText(formatTranscriptSegments(payload.segments, payload.text, {
         showSpeakers,
@@ -277,6 +291,7 @@ export default function TranscriptionStudio() {
     setResult(null);
     setError(null);
     setText('');
+    setSpeakerNames({});
     setElapsedMs(0);
     setStatus('idle');
   }, [cancelTranscription, clear]);
@@ -290,10 +305,23 @@ export default function TranscriptionStudio() {
       setText(formatTranscriptSegments(result.segments, result.text, {
         showSpeakers: nextShowSpeakers,
         showTimeline: nextShowTimeline,
-        speakerLabel: (number) => t('transcript.speaker', { number }),
+        speakerLabel: (number) => speakerNames[number]?.trim() || t('transcript.speaker', { number }),
       }));
     }
-  }, [result, showSpeakers, showTimeline, t]);
+  }, [result, showSpeakers, showTimeline, speakerNames, t]);
+
+  const updateSpeakerName = useCallback((number, name) => {
+    const nextNames = { ...speakerNames, [number]: name };
+    setSpeakerNames(nextNames);
+    if (result) {
+      setText(formatTranscriptSegments(result.segments, result.text, {
+        showSpeakers,
+        showTimeline,
+        speakerLabel: (speakerNumber) =>
+          nextNames[speakerNumber]?.trim() || t('transcript.speaker', { number: speakerNumber }),
+      }));
+    }
+  }, [result, showSpeakers, showTimeline, speakerNames, t]);
 
   /* -------------------------------------------------- keyboard shortcuts */
   useEffect(() => {
@@ -624,6 +652,9 @@ export default function TranscriptionStudio() {
           onClear={clearAll}
           showSpeakers={showSpeakers}
           showTimeline={showTimeline}
+          speakerNames={speakerNames}
+          speakers={speakers}
+          onSpeakerNameChange={updateSpeakerName}
           onShowSpeakersChange={(checked) => updateTranscriptOptions({ showSpeakers: checked })}
           onShowTimelineChange={(checked) => updateTranscriptOptions({ showTimeline: checked })}
         />

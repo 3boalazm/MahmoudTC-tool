@@ -23,6 +23,23 @@ test('formats chunks with speaker labels and real timeline ranges', () => {
   assert.match(output, /\[00:03–00:04\]/);
 });
 
+test('custom speaker names appear in the transcript and SRT export', () => {
+  const speakerLabel = (number) => ({ 1: 'Ahmed', 2: 'Mona' })[number];
+  const output = formatTranscriptSegments(segments, '', {
+    showSpeakers: true,
+    showTimeline: true,
+    speakerLabel,
+  });
+
+  assert.match(output, /Ahmed/);
+  assert.match(output, /Mona/);
+  assert.doesNotMatch(output, /Speaker 1|Speaker 2/);
+
+  const srt = buildSrt(segments, { showSpeakers: true, speakerLabel });
+  assert.match(srt, /Ahmed: Good morning\./);
+  assert.match(srt, /Mona: I am fine\./);
+});
+
 test('speaker labels and timeline can be independently hidden', () => {
   const output = formatTranscriptSegments(segments, '', {
     showSpeakers: false,

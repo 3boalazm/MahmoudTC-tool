@@ -56,6 +56,9 @@ export default function TranscriptPanel({
   onCancel,
   showSpeakers,
   showTimeline,
+  speakerNames = {},
+  speakers = [],
+  onSpeakerNameChange,
   onShowSpeakersChange,
   onShowTimelineChange,
 }) {
@@ -84,7 +87,7 @@ export default function TranscriptPanel({
     downloadFile(`${fileName}.txt`, buildPlainText(text, { wrapAt: 90 }));
   }, [fileName, text]);
 
-  const srt = useMemo(() => (isDone ? buildSrt(result?.segments, { showSpeakers, speakerLabel: (number) => t('transcript.speaker', { number }) }) : null), [isDone, result?.segments, showSpeakers, t]);
+  const srt = useMemo(() => (isDone ? buildSrt(result?.segments, { showSpeakers, speakerLabel: (number) => speakerNames[number]?.trim() || t('transcript.speaker', { number }) }) : null), [isDone, result?.segments, showSpeakers, speakerNames, t]);
   const handleDownloadSrt = useCallback(() => {
     if (srt) downloadFile(`${fileName}.srt`, srt, 'application/x-subrip');
   }, [fileName, srt]);
@@ -200,6 +203,35 @@ export default function TranscriptPanel({
                 </span>
               </label>
             </div>
+            {showSpeakers && speakers.length > 0 ? (
+              <section className="mt-4 rounded-2xl border border-iris-400/25 bg-iris-500/5 p-4" aria-labelledby="speaker-names-heading">
+                <div className="mb-3">
+                  <h3 id="speaker-names-heading" className="text-sm font-semibold text-ink-100">
+                    {t('transcript.speakerNames.heading')}
+                  </h3>
+                  <p className="mt-1 text-xs text-ink-400">
+                    {t('transcript.speakerNames.hint')}
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {speakers.map(({ number }) => (
+                    <label key={number} className="block min-w-0">
+                      <span className="mb-1.5 block text-xs font-medium text-ink-300">
+                        {t('transcript.speaker', { number })}
+                      </span>
+                      <input
+                        type="text"
+                        value={speakerNames[number] ?? ''}
+                        onChange={(event) => onSpeakerNameChange(number, event.target.value)}
+                        placeholder={t('transcript.speakerNames.placeholder', { number })}
+                        maxLength={80}
+                        className="w-full rounded-xl border border-ink-500/20 bg-surface-1/80 px-3 py-2.5 text-sm text-ink-100 outline-none transition placeholder:text-ink-500 focus:border-iris-400/60"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </section>
+            ) : null}
             <div className="relative mt-4">
               <textarea
                 ref={textareaRef}
