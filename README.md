@@ -793,7 +793,7 @@ asserts the contract end to end:
   third-engine and fourth-engine hand-off, and a non-retryable error that stops
   the chain instead of burning credit;
 - whole-chain failure returns a structured error naming every engine tried;
-- engine pinning, the `fallback=false` escape hatch, and Speechmatics refusing a
+- engine pinning, the `fallback=false` escape hatch, and Speechmatics fetching a
   remote URL via its Batch API `fetch_data` field;
 - `/api/usage` reports Deepgram's balance, Speechmatics' batch hours, and says
   "no API" for the two providers that publish nothing;
