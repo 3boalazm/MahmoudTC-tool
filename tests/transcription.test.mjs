@@ -777,7 +777,7 @@ test('transcribeWithSpeechmatics sends remote URLs through fetch_data and auto-d
     calls.push({ href, init });
     if (href.endsWith('/jobs/')) {
       const body = init.body.toString('utf8');
-      assert.match(body, /"fetch_data":\{"url":"https:\\/\\/abc\.public\.blob\.vercel-storage\.com\\/clip\.webm"\}/);
+      assert.match(body, /"fetch_data":\{"url":"https:\/\/abc\.public\.blob\.vercel-storage\.com\/clip\.webm"\}/);
       assert.match(body, /"model":"melia-1"/);
       assert.match(body, /"language":"multi"/);
       assert.match(body, /"language_hints":\["ar","en"\]/);
