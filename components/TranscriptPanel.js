@@ -40,6 +40,7 @@ import {
   formatConfidence,
   formatDuration,
   formatElapsed,
+  formatTranscriptSegments,
   modelLabel,
 } from '@/lib/client/format';
 
@@ -54,6 +55,7 @@ export default function TranscriptPanel({
   onRetry,
   onClear,
   onCancel,
+  onTextChange,
 }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
@@ -66,6 +68,17 @@ export default function TranscriptPanel({
   const isDone = status === 'done';
   const isRunning = status === 'running';
   const isError = status === 'error';
+  const [showSpeakers, setShowSpeakers] = useState(true);
+  const [showTimeline, setShowTimeline] = useState(true);
+
+  useEffect(() => {
+    if (!isDone || !result) return;
+    onTextChange(formatTranscriptSegments(result.segments, result.text, {
+      showSpeakers,
+      showTimeline,
+      speakerLabel: (number) => t('transcript.speaker', { number }),
+    }));
+  }, [isDone, result, showSpeakers, showTimeline, onTextChange, t]);
 
   const handleCopy = useCallback(async () => {
     const ok = await copyToClipboard(text);
@@ -168,6 +181,34 @@ export default function TranscriptPanel({
 
             <StatGrid stats={stats} result={result} />
 
+            <div className="mt-4 flex flex-wrap gap-3 rounded-2xl border border-ink-500/20 bg-surface-1/50 p-3">
+              <label className="inline-flex cursor-pointer items-start gap-2.5 text-sm text-ink-200">
+                <input
+                  type="checkbox"
+                  checked={showSpeakers}
+                  onChange={(event) => setShowSpeakers(event.target.checked)}
+                  className="mt-0.5 size-4 accent-[var(--color-iris-400)]"
+                  aria-label={t('transcript.options.speakers')}
+                />
+                <span>
+                  <span className="block font-medium">{t('transcript.options.speakers')}</span>
+                  <span className="block text-xs text-ink-400">{t('transcript.options.speakersHint')}</span>
+                </span>
+              </label>
+              <label className="inline-flex cursor-pointer items-start gap-2.5 text-sm text-ink-200">
+                <input
+                  type="checkbox"
+                  checked={showTimeline}
+                  onChange={(event) => setShowTimeline(event.target.checked)}
+                  className="mt-0.5 size-4 accent-[var(--color-iris-400)]"
+                  aria-label={t('transcript.options.timeline')}
+                />
+                <span>
+                  <span className="block font-medium">{t('transcript.options.timeline')}</span>
+                  <span className="block text-xs text-ink-400">{t('transcript.options.timelineHint')}</span>
+                </span>
+              </label>
+            </div>
             <div className="relative mt-4">
               <textarea
                 ref={textareaRef}
