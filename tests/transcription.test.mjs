@@ -94,12 +94,13 @@ test('extractProviderMessage copes with both providers’ error shapes', () => {
 
 /* ----------------------------------------------------------------- deepgram */
 
-test('buildDeepgramQuery defaults to nova-2 with smart formatting', () => {
+test('buildDeepgramQuery defaults to Nova-3 and detects language instead of forcing English', () => {
   const query = new URLSearchParams(buildDeepgramQuery());
-  assert.equal(query.get('model'), 'nova-2');
+  assert.equal(query.get('model'), 'nova-3');
   assert.equal(query.get('smart_format'), 'true');
   assert.equal(query.get('punctuate'), 'true');
-  assert.equal(query.get('language'), 'en');
+  assert.equal(query.get('detect_language'), 'true');
+  assert.equal(query.get('language'), null);
 });
 
 test('buildDeepgramQuery passes through supported languages', () => {
@@ -108,15 +109,17 @@ test('buildDeepgramQuery passes through supported languages', () => {
   assert.equal(query.get('detect_language'), null);
 });
 
-test('buildDeepgramQuery switches to auto-detection for unsupported languages', () => {
-  const query = new URLSearchParams(buildDeepgramQuery({ language: 'ar' }));
-  assert.equal(query.get('detect_language'), 'true');
-  assert.equal(query.get('language'), null);
+test('buildDeepgramQuery upgrades Nova-2 to Nova-3 for Arabic', () => {
+  const query = new URLSearchParams(buildDeepgramQuery({ model: 'nova-2', language: 'ar-EG' }));
+  assert.equal(query.get('model'), 'nova-3');
+  assert.equal(query.get('language'), 'ar-EG');
+  assert.equal(query.get('detect_language'), null);
 });
 
-test('buildDeepgramQuery uses the multilingual model outside nova-2', () => {
+test('buildDeepgramQuery uses language detection for Nova-3 auto mode', () => {
   const query = new URLSearchParams(buildDeepgramQuery({ model: 'nova-3' }));
-  assert.equal(query.get('language'), 'multi');
+  assert.equal(query.get('detect_language'), 'true');
+  assert.equal(query.get('language'), null);
 });
 
 test('parseDeepgramResponse normalises a channel response', () => {
@@ -443,8 +446,8 @@ test('the engine registry describes four engines in failover order', () => {
     assert.ok(engine.dashboardUrl.startsWith('https://'), `${id} needs a dashboard link`);
   }
 
-  // Speechmatics ingests bytes only, which the picker surfaces to the user.
-  assert.equal(ENGINE_MAP.speechmatics.supportsRemoteUrl, false);
+  // Speechmatics can fetch remote audio itself through the Batch API.
+  assert.equal(ENGINE_MAP.speechmatics.supportsRemoteUrl, true);
   assert.equal(ENGINE_MAP.deepgram.supportsRemoteUrl, true);
   assert.equal(ENGINE_MAP.deepgram.keyVar, 'DEEPGRAM_API_KEY');
   assert.equal(ENGINE_MAP.speechmatics.keyVar, 'SPEECHMATICS_API_KEY');
@@ -463,7 +466,7 @@ test('engine labels and accents resolve for every engine', () => {
   assert.equal(engineLabel('speechmatics'), 'Speechmatics');
   assert.equal(engineLabel('nope'), '—');
   assert.equal(engineModelLabel('speechmatics', 'enhanced'), 'Speechmatics enhanced');
-  assert.equal(engineModelLabel('deepgram'), 'Deepgram Nova-2');
+  assert.equal(engineModelLabel('deepgram'), 'Deepgram Nova-3');
   // accentFor returns the ready-made Tailwind class bundle for an engine.
   assert.equal(accentFor('gladia').dot, 'bg-mint-400');
   assert.equal(accentFor('speechmatics').text, 'text-rose-400');
@@ -766,20 +769,47 @@ test('transcribeWithSpeechmatics sends a multipart job and polls it', async () =
   }
 });
 
-test('transcribeWithSpeechmatics refuses a URL it cannot read', async () => {
-  await assert.rejects(
-    () =>
-      transcribeWithSpeechmatics(
-        { url: 'https://abc.public.blob.vercel-storage.com/clip.webm' },
-        { apiKey: 'k', baseUrl: 'https://sm.test/v2' },
-      ),
-    (error) => {
-      assert.equal(error.code, 'BAD_REQUEST');
-      assert.equal(error.provider, 'speechmatics');
-      assert.match(error.userMessage, /does not accept/i);
-      return true;
-    },
-  );
+test('transcribeWithSpeechmatics sends remote URLs through fetch_data and auto-detects Arabic/English', async () => {
+  const calls = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const href = String(url);
+    calls.push({ href, init });
+    if (href.endsWith('/jobs/')) {
+      const body = init.body.toString('utf8');
+      assert.match(body, /"fetch_data":\{"url":"https:\\/\\/abc\.public\.blob\.vercel-storage\.com\\/clip\.webm"\}/);
+      assert.match(body, /"model":"melia-1"/);
+      assert.match(body, /"language":"multi"/);
+      assert.match(body, /"language_hints":\["ar","en"\]/);
+      assert.doesNotMatch(body, /name="data_file"/);
+      return new Response(JSON.stringify({ id: 'sm-remote', status: 'running' }), {
+        status: 201,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (/\/jobs\/sm-remote$/.test(href)) {
+      return new Response(JSON.stringify({ job: { id: 'sm-remote', status: 'done' } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ results: [{ type: 'word', start_time: 0, end_time: 0.4, alternatives: [{ content: 'أهلاً', confidence: 0.9 }] }] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const result = await transcribeWithSpeechmatics(
+      { url: 'https://abc.public.blob.vercel-storage.com/clip.webm' },
+      { apiKey: 'k', baseUrl: 'https://sm.test/v2', pollIntervalMs: 1 },
+    );
+    assert.equal(result.text, 'أهلاً');
+    assert.equal(result.model, 'melia-1');
+    assert.equal(calls.length, 3);
+  } finally {
+    globalThis.fetch = original;
+  }
 });
 
 test('summariseSpeechmaticsUsage totals only transcription rows', () => {
