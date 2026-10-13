@@ -3,7 +3,7 @@
 A production-ready speech-to-text web app: upload a file or record live in the
 browser, and get clean, editable, exportable text.
 
-Four best-in-class engines sit behind **one** API route. Deepgram (Nova-2) does
+Four best-in-class engines sit behind **one** API route. Deepgram (Nova-3) does
 the work; if it hits a rate limit, runs out of credit, or falls over, **Gladia,
 AssemblyAI and Speechmatics take over in turn** and the user sees nothing but a
 finished transcript.
@@ -13,7 +13,7 @@ route handler. The chain is ordered by `ENGINE_ORDER` and every engine is tried
 in turn until one succeeds.
 
 ```
-Browser ──► /api/transcribe ──► Deepgram Nova-2        (primary)
+Browser ──► /api/transcribe ──► Deepgram Nova-3        (primary)
                    │                    │ 429 / 402 / 401 / 5xx / timeout / empty transcript
                    │                    ▼
                    │             Gladia Solaria         (fallback 1)
@@ -330,7 +330,7 @@ required**. Set one to override the default for that engine.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `DEEPGRAM_MODEL` | `nova-2` | e.g. `nova-3` for broader language coverage. |
+| `DEEPGRAM_MODEL` | `nova-3` | Nova-3 supports Arabic, including Egyptian Arabic (`ar-EG`); Arabic/auto requests are upgraded from Nova-3 if it is explicitly configured. |
 | `MAX_UPLOAD_MB` | `4` on Vercel, `25` elsewhere | Ceiling for audio streamed *through* the API route. |
 | `ALLOW_MEDIA_LINKS` | `true` | Turns the "From a link" input on or off. |
 | `MAX_LINK_MB` | `50` on Vercel, `100` elsewhere | Largest file the server will download from a pasted link. |
@@ -381,7 +381,7 @@ and only codes that mean "this provider is out of action" trigger a hand-off.
 | `400` malformed audio / unsupported container | `BAD_REQUEST` | The second engine would reject it identically. Fail fast with a clear message. |
 | Request too large / wrong MIME type | `BAD_REQUEST` | A client-side problem. |
 | A credential missing for one engine | `MISSING_KEY` | Non-retryable for that engine, but the plan still runs the others. |
-| Speechmatics asked to transcribe a remote URL | `BAD_REQUEST` | It ingests bytes only; the UI disables that combination up front. |
+| Speechmatics remote URL | Batch API `fetch_data` | Speechmatics fetches audio URLs itself, including Vercel Blob URLs for large uploads. |
 
 ### What the client sees
 
@@ -393,7 +393,7 @@ Every response — success or failure — has one shape, so the UI never guesses
   "ok": true,
   "text": "…transcript…",
   "engine": "gladia",          // which engine actually produced this
-  "model": "solaria-1",        // Deepgram nova-2 · Gladia Solaria · AssemblyAI universal · Speechmatics enhanced
+  "model": "solaria-1",        // Deepgram nova-3 · Gladia Solaria · AssemblyAI universal · Speechmatics enhanced
   "language": "en",
   "confidence": 0.97,
   "durationSeconds": 12.4,
@@ -794,7 +794,7 @@ asserts the contract end to end:
   the chain instead of burning credit;
 - whole-chain failure returns a structured error naming every engine tried;
 - engine pinning, the `fallback=false` escape hatch, and Speechmatics refusing a
-  remote URL (it ingests bytes only);
+  remote URL via its Batch API `fetch_data` field;
 - `/api/usage` reports Deepgram's balance, Speechmatics' batch hours, and says
   "no API" for the two providers that publish nothing;
 - every page renders, `/studio` owns the transcriber, and the landing page
