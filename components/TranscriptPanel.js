@@ -55,6 +55,10 @@ export default function TranscriptPanel({
   onRetry,
   onClear,
   onCancel,
+  showSpeakers,
+  showTimeline,
+  onShowSpeakersChange,
+  onShowTimelineChange,
 }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
@@ -67,17 +71,6 @@ export default function TranscriptPanel({
   const isDone = status === 'done';
   const isRunning = status === 'running';
   const isError = status === 'error';
-  const [showSpeakers, setShowSpeakers] = useState(true);
-  const [showTimeline, setShowTimeline] = useState(true);
-
-  useEffect(() => {
-    if (!isDone || !result) return;
-    onTextChange(formatTranscriptSegments(result.segments, result.text, {
-      showSpeakers,
-      showTimeline,
-      speakerLabel: (number) => t('transcript.speaker', { number }),
-    }));
-  }, [isDone, result, showSpeakers, showTimeline, onTextChange, t]);
 
   const handleCopy = useCallback(async () => {
     const ok = await copyToClipboard(text);
@@ -185,7 +178,7 @@ export default function TranscriptPanel({
                 <input
                   type="checkbox"
                   checked={showSpeakers}
-                  onChange={(event) => setShowSpeakers(event.target.checked)}
+                  onChange={(event) => onShowSpeakersChange(event.target.checked)}
                   className="mt-0.5 size-4 accent-[var(--color-iris-400)]"
                   aria-label={t('transcript.options.speakers')}
                 />
@@ -198,7 +191,7 @@ export default function TranscriptPanel({
                 <input
                   type="checkbox"
                   checked={showTimeline}
-                  onChange={(event) => setShowTimeline(event.target.checked)}
+                  onChange={(event) => onShowTimelineChange(event.target.checked)}
                   className="mt-0.5 size-4 accent-[var(--color-iris-400)]"
                   aria-label={t('transcript.options.timeline')}
                 />
