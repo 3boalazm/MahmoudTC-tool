@@ -219,27 +219,7 @@ export default function TranscriptionStudio() {
       });
 
       setResult({ ...payload, sourceName: audio.name });
-      const speakerSegments = (payload.segments ?? []).filter(
-        (segment) => segment?.speaker !== null && segment?.speaker !== undefined && segment?.speaker !== '',
-      );
-      if (speakerSegments.length) {
-        const speakerNumbers = new Map();
-        const formatted = payload.segments
-          .filter((segment) => segment?.text)
-          .map((segment) => {
-            if (segment.speaker === null || segment.speaker === undefined || segment.speaker === '') {
-              return segment.text;
-            }
-            if (!speakerNumbers.has(segment.speaker)) {
-              speakerNumbers.set(segment.speaker, speakerNumbers.size + 1);
-            }
-            return `${t('transcript.speaker', { number: speakerNumbers.get(segment.speaker) })}\n${segment.text}`;
-          })
-          .join('\n\n');
-        setText(formatted || payload.text || '');
-      } else {
-        setText(payload.text ?? '');
-      }
+      setText(payload.text ?? '');
       setElapsedMs(payload.elapsedMs ?? Date.now() - startedAt);
       setStatus('done');
       // The request just changed the consumption numbers on the server.
