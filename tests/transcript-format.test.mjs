@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formatTranscriptSegments } from '../lib/client/format.js';
+import { buildSrt, formatTranscriptSegments } from '../lib/client/format.js';
 
 const segments = [
   { text: 'Good morning.', start: 0, end: 1.4, speaker: 'A' },
@@ -52,4 +52,11 @@ test('does not create speaker labels or timeline for unavailable metadata', () =
   });
 
   assert.equal(output, 'No timing available.');
+});
+
+test('speaker labels can be disabled in SRT while timing remains intact', () => {
+  const output = buildSrt(segments, { showSpeakers: false });
+  assert.ok(output);
+  assert.match(output, /00:00:00,000 --> 00:00:01,400/);
+  assert.doesNotMatch(output, /Speaker 1/);
 });
