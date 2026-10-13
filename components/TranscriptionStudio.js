@@ -37,7 +37,7 @@ import {
   requestTranscription,
   uploadToBlob,
 } from '@/lib/client/api';
-import { engineLabel, formatBytes, formatDuration, formatElapsed, modelLabel } from '@/lib/client/format';
+import { engineLabel, formatBytes, formatDuration, formatElapsed, formatTranscriptSegments, modelLabel } from '@/lib/client/format';
 import { DEFAULT_ENGINE_ORDER, ENGINES, ENGINE_IDS } from '@/lib/engines-meta';
 
 /**
@@ -80,6 +80,8 @@ export default function TranscriptionStudio() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [text, setText] = useState('');
+  const [showSpeakers, setShowSpeakers] = useState(true);
+  const [showTimeline, setShowTimeline] = useState(true);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isRecordingBusy, setIsRecordingBusy] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
@@ -219,7 +221,11 @@ export default function TranscriptionStudio() {
       });
 
       setResult({ ...payload, sourceName: audio.name });
-      setText(payload.text ?? '');
+      setText(formatTranscriptSegments(payload.segments, payload.text, {
+        showSpeakers,
+        showTimeline,
+        speakerLabel: (number) => t('transcript.speaker', { number }),
+      }));
       setElapsedMs(payload.elapsedMs ?? Date.now() - startedAt);
       setStatus('done');
       // The request just changed the consumption numbers on the server.
@@ -253,6 +259,9 @@ export default function TranscriptionStudio() {
     limits.maxUploadMb,
     status,
     stopTimer,
+    showSpeakers,
+    showTimeline,
+    t,
   ]);
 
   const cancelTranscription = useCallback(() => {
@@ -271,6 +280,20 @@ export default function TranscriptionStudio() {
     setElapsedMs(0);
     setStatus('idle');
   }, [cancelTranscription, clear]);
+
+  const updateTranscriptOptions = useCallback((nextOptions) => {
+    const nextShowSpeakers = nextOptions.showSpeakers ?? showSpeakers;
+    const nextShowTimeline = nextOptions.showTimeline ?? showTimeline;
+    if (nextOptions.showSpeakers !== undefined) setShowSpeakers(nextShowSpeakers);
+    if (nextOptions.showTimeline !== undefined) setShowTimeline(nextShowTimeline);
+    if (result) {
+      setText(formatTranscriptSegments(result.segments, result.text, {
+        showSpeakers: nextShowSpeakers,
+        showTimeline: nextShowTimeline,
+        speakerLabel: (number) => t('transcript.speaker', { number }),
+      }));
+    }
+  }, [result, showSpeakers, showTimeline, t]);
 
   /* -------------------------------------------------- keyboard shortcuts */
   useEffect(() => {
@@ -599,6 +622,10 @@ export default function TranscriptionStudio() {
           onRetry={runTranscription}
           onCancel={cancelTranscription}
           onClear={clearAll}
+          showSpeakers={showSpeakers}
+          showTimeline={showTimeline}
+          onShowSpeakersChange={(checked) => updateTranscriptOptions({ showSpeakers: checked })}
+          onShowTimelineChange={(checked) => updateTranscriptOptions({ showTimeline: checked })}
         />
       </div>
 
