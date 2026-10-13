@@ -519,6 +519,74 @@ export default function TranscriptionStudio() {
         ) : null}
       </section>
 
+      {status === 'running' ? (
+        <section
+          className="glass-panel rounded-3xl border border-iris-400/25 p-4 sm:p-5"
+          aria-label={t('transcript.running')}
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-iris-500/15 text-iris-300">
+              <SpinnerIcon className="size-4 animate-spin" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-ink-100">
+                  {uploadProgress !== null
+                    ? t('studio.stage.uploading', { percent: Math.round(uploadProgress * 100) })
+                    : stageText || t('transcript.running')}
+                </p>
+                {uploadProgress !== null ? (
+                  <span className="font-mono text-sm font-semibold tabular-nums text-iris-300">
+                    {Math.round(uploadProgress * 100)}%
+                  </span>
+                ) : (
+                  <span className="text-xs text-ink-400">
+                    {formatElapsed(elapsedMs)}
+                  </span>
+                )}
+              </div>
+              {uploadProgress !== null ? (
+                <p className="mt-1 text-xs text-ink-400" dir="ltr">
+                  {formatBytes(Math.min(audio?.size ?? 0, Math.round((audio?.size ?? 0) * uploadProgress)))}
+                  {' / '}
+                  {formatBytes(audio?.size ?? 0)}
+                </p>
+              ) : (
+                <p className="mt-1 text-xs leading-relaxed text-ink-400">
+                  {t('transcript.running')} · {formatElapsed(elapsedMs)}
+                </p>
+              )}
+              <div
+                className="mt-3 h-2.5 overflow-hidden rounded-full bg-surface-3"
+                role="progressbar"
+                aria-label={uploadProgress !== null
+                  ? t('studio.stage.uploading', { percent: Math.round(uploadProgress * 100) })
+                  : t('transcript.running')}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={uploadProgress !== null ? Math.round(uploadProgress * 100) : undefined}
+              >
+                {uploadProgress !== null ? (
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-iris-500 to-mint-400 transition-[width] duration-200"
+                    style={{ width: `${Math.round(uploadProgress * 100)}%` }}
+                  />
+                ) : (
+                  <div className="h-full w-1/3 animate-shimmer rounded-full bg-gradient-to-r from-iris-500/30 via-iris-300 to-mint-400/40 bg-[length:200%_100%]" />
+                )}
+              </div>
+              {uploadProgress === null ? (
+                <p className="mt-2 text-[11px] text-ink-500">
+                  {t('studio.stage.long')}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <div ref={transcriptRef} className="scroll-mt-6">
         <TranscriptPanel
           status={status}
