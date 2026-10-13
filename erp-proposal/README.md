@@ -13,7 +13,7 @@ python3 -m http.server 8080 --directory erp-proposal
 ```
 
 - `?lang=en` or `?lang=ar` forces a language. The choice is also remembered in `localStorage`.
-- The print button in the top bar (or Ctrl/Cmd+P) produces a clean, light, print-ready PDF version.
+- The print button in the top bar (or Ctrl/Cmd+P) produces a branded A4 PDF: dark theme, one section per page, with the interactive builder hidden and all 12 modules listed in full. In the print dialog, enable **Background graphics** and set margins to **None**.
 
 ## Structure
 
