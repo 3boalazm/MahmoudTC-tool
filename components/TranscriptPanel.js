@@ -84,7 +84,7 @@ export default function TranscriptPanel({
     downloadFile(`${fileName}.txt`, buildPlainText(text, { wrapAt: 90 }));
   }, [fileName, text]);
 
-  const srt = useMemo(() => (isDone ? buildSrt(result?.segments) : null), [isDone, result?.segments]);
+  const srt = useMemo(() => (isDone ? buildSrt(result?.segments, { showSpeakers, speakerLabel: (number) => t('transcript.speaker', { number }) }) : null), [isDone, result?.segments, showSpeakers, t]);
   const handleDownloadSrt = useCallback(() => {
     if (srt) downloadFile(`${fileName}.srt`, srt, 'application/x-subrip');
   }, [fileName, srt]);
