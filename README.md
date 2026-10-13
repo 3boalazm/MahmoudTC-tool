@@ -105,6 +105,9 @@ desktops, fully **bilingual (English / Arabic with RTL)** and ships both a
   actually exists.
 - `POST /api/blob/upload` — mints short-lived Vercel Blob tokens so files larger
   than the serverless body limit can bypass the function entirely.
+- Uploaded Blob audio is deleted automatically after transcription succeeds or
+  all provider attempts fail (`BLOB_DELETE_AFTER_USE=true` by default). Cleanup is
+  best-effort; a platform timeout or interrupted request can leave an orphaned blob.
 - Automatic timeouts, SSRF-safe URL validation, credential redaction.
 
 ---
@@ -319,7 +322,7 @@ required**. Set one to override the default for that engine.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `BLOB_READ_WRITE_TOKEN` | — | Injected by a connected Vercel Blob store. Enables files larger than the serverless body limit. |
-| `BLOB_MAX_UPLOAD_MB` | `200` | Ceiling for a single browser → Blob upload. |
+| `BLOB_MAX_UPLOAD_MB` | `300` | Ceiling for a single browser → Blob upload. |
 | `BLOB_DELETE_AFTER_USE` | `true` | Delete the object as soon as transcription finishes. |
 | `ALLOW_BLOB_UPLOAD` | `true` | Set to `false` to disable the large-file path entirely. |
 
@@ -570,7 +573,7 @@ plan: the default budget is derived from the platform, not from the plan.
 | --- | --- | --- |
 | Local / self-hosted | 25 MB (raise with `MAX_UPLOAD_MB`) | not needed |
 | Vercel, no Blob store | **4 MB** | unavailable |
-| Vercel + Blob store | 4 MB | **200 MB** (`BLOB_MAX_UPLOAD_MB`) |
+| Vercel + Blob store | 4 MB | **300 MB** (`BLOB_MAX_UPLOAD_MB`) |
 
 The UI reads all of this from `/api/health` and states the real limits in place,
 rather than advertising a number the platform would refuse.
