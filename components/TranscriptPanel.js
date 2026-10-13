@@ -346,6 +346,12 @@ function ErrorState({ error, onRetry }) {
           {error?.code ? (
             <p className="mt-2 font-mono text-[11px] text-rose-400/80">code: {error.code}</p>
           ) : null}
+          {error?.detail ? (
+            <details className="mt-3 rounded-xl border border-rose-400/20 bg-black/10 p-3 text-xs text-rose-200/90">
+              <summary className="cursor-pointer select-none font-medium">Provider diagnostic details</summary>
+              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed">{error.detail}</pre>
+            </details>
+          ) : null}
         </div>
         <button
           type="button"
