@@ -97,8 +97,9 @@ export async function POST(request) {
           allowedContentTypes: ALLOWED_CONTENT_TYPES,
           maximumSizeInBytes: blobMaxBytes(),
           addRandomSuffix: true,
-          // The token is only good for a couple of minutes.
-          validUntil: Date.now() + 2 * 60 * 1000,
+          // Allow enough time for slower mobile networks and large audio uploads.
+          // The token is scoped to this validated audio upload and remains short-lived.
+          validUntil: Date.now() + 30 * 60 * 1000,
           tokenPayload: JSON.stringify({ issuedAt: Date.now() }),
         };
       },
