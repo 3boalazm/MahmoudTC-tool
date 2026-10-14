@@ -48,16 +48,14 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * Vercel function timeout. 60 s is the ceiling every plan supports (Hobby caps
- * here; Pro and above allow more), so it is the safe default.
+ * Vercel function timeout. Fluid Compute is enabled for this project, so the
+ * Hobby plan supports up to 300 s. Keep a little headroom for the route to
+ * return JSON before the platform deadline.
  *
- * On Pro/Enterprise you can raise BOTH of these to finish very long recordings:
- *   1. this constant → 300
- *   2. FUNCTION_BUDGET_MS → e.g. 285000 (must stay under the value above)
- * `lib/server/config.js` clamps every provider timeout to fit the budget, so the
- * route always has time to return real JSON instead of dying mid-request.
+ * Provider work is capped in lib/server/config.js to maxDuration - 5 s, so a
+ * slow engine/fallback is less likely to be terminated with an opaque 504.
  */
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 const ACCEPTED_EXTENSIONS = MEDIA_EXTENSIONS;
 
