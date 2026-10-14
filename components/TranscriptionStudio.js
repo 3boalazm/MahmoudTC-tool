@@ -84,11 +84,20 @@ export default function TranscriptionStudio() {
   const [showSpeakers, setShowSpeakers] = useState(true);
   const [showTimeline, setShowTimeline] = useState(true);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [uploadElapsedMs, setUploadElapsedMs] = useState(null);
+  const [totalElapsedMs, setTotalElapsedMs] = useState(0);
+  const [timingVisible, setTimingVisible] = useState(false);
   const [isRecordingBusy, setIsRecordingBusy] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
 
   const abortRef = useRef(null);
   const timerRef = useRef(null);
+  const timingRef = useRef({
+    totalStartedAt: null,
+    uploadStartedAt: null,
+    uploadFinishedAt: null,
+    transcriptionStartedAt: null,
+  });
   const transcriptRef = useRef(null);
 
   const { audio, peaks, isDecoding, load, loadLink, clear } = useAudioSource();
@@ -193,11 +202,30 @@ export default function TranscriptionStudio() {
     setError(null);
     setResult(null);
     setElapsedMs(0);
+    setUploadElapsedMs(null);
+    setTotalElapsedMs(0);
+    setTimingVisible(true);
     setUploadProgress(null);
 
     const startedAt = Date.now();
+    timingRef.current = {
+      totalStartedAt: startedAt,
+      uploadStartedAt: null,
+      uploadFinishedAt: null,
+      transcriptionStartedAt: null,
+    };
     stopTimer();
-    timerRef.current = setInterval(() => setElapsedMs(Date.now() - startedAt), 100);
+    timerRef.current = setInterval(() => {
+      const now = Date.now();
+      const timing = timingRef.current;
+      setTotalElapsedMs(timing.totalStartedAt ? now - timing.totalStartedAt : 0);
+      if (timing.uploadStartedAt && !timing.uploadFinishedAt) {
+        setUploadElapsedMs(now - timing.uploadStartedAt);
+      }
+      if (timing.transcriptionStartedAt) {
+        setElapsedMs(now - timing.transcriptionStartedAt);
+      }
+    }, 100);
 
     try {
       /**
@@ -212,14 +240,21 @@ export default function TranscriptionStudio() {
       let audioUrl = null;
       if (exceedsInline) {
         setUploadProgress(0);
+        timingRef.current.uploadStartedAt = Date.now();
+        setUploadElapsedMs(0);
         audioUrl = await uploadToBlob(audio.blob, {
           filename: audio.name,
           signal: controller.signal,
           onProgress: setUploadProgress,
         });
+        timingRef.current.uploadFinishedAt = Date.now();
+        setUploadElapsedMs(timingRef.current.uploadFinishedAt - timingRef.current.uploadStartedAt);
         setUploadProgress(null);
       }
 
+      // The separate upload phase ends here. For inline files and links, the
+      // browser cannot observe upload time independently from the API request.
+      timingRef.current.transcriptionStartedAt = Date.now();
       const payload = await requestTranscription({
         // A pasted link is downloaded by the server; nothing is sent from here.
         audio: audioUrl || isLink ? undefined : audio.blob,
@@ -240,7 +275,8 @@ export default function TranscriptionStudio() {
         showTimeline,
         speakerLabel: (number) => t('transcript.speaker', { number }),
       }));
-      setElapsedMs(payload.elapsedMs ?? Date.now() - startedAt);
+      setElapsedMs(Date.now() - timingRef.current.transcriptionStartedAt);
+      setTotalElapsedMs(Date.now() - startedAt);
       setStatus('done');
       // The request just changed the consumption numbers on the server.
       setUsageRefreshToken((value) => value + 1);
@@ -259,6 +295,15 @@ export default function TranscriptionStudio() {
       );
       setStatus('error');
     } finally {
+      const endedAt = Date.now();
+      const timing = timingRef.current;
+      if (timing.totalStartedAt) setTotalElapsedMs(endedAt - timing.totalStartedAt);
+      if (timing.uploadStartedAt && !timing.uploadFinishedAt) {
+        setUploadElapsedMs(endedAt - timing.uploadStartedAt);
+      }
+      if (timing.transcriptionStartedAt) {
+        setElapsedMs(endedAt - timing.transcriptionStartedAt);
+      }
       stopTimer();
       setUploadProgress(null);
       abortRef.current = null;
@@ -293,6 +338,15 @@ export default function TranscriptionStudio() {
     setText('');
     setSpeakerNames({});
     setElapsedMs(0);
+    setUploadElapsedMs(null);
+    setTotalElapsedMs(0);
+    setTimingVisible(false);
+    timingRef.current = {
+      totalStartedAt: null,
+      uploadStartedAt: null,
+      uploadFinishedAt: null,
+      transcriptionStartedAt: null,
+    };
     setStatus('idle');
   }, [cancelTranscription, clear]);
 
@@ -569,6 +623,49 @@ export default function TranscriptionStudio() {
           </p>
         ) : null}
       </section>
+
+      {timingVisible ? (
+        <section
+          aria-label={t('studio.timing.heading')}
+          className="grid gap-3 sm:grid-cols-3"
+        >
+          {[
+            {
+              key: 'upload',
+              label: t('studio.timing.upload'),
+              value: uploadElapsedMs === null ? '—' : formatElapsed(uploadElapsedMs),
+              accent: 'text-iris-300',
+            },
+            {
+              key: 'transcription',
+              label: t('studio.timing.transcription'),
+              value: timingRef.current.transcriptionStartedAt ? formatElapsed(elapsedMs) : '—',
+              accent: 'text-mint-400',
+            },
+            {
+              key: 'total',
+              label: t('studio.timing.total'),
+              value: formatElapsed(totalElapsedMs),
+              accent: 'text-ink-100',
+            },
+          ].map((item) => (
+            <div
+              key={item.key}
+              className="rounded-2xl border border-ink-500/20 bg-surface-1/60 px-4 py-3"
+            >
+              <p className="text-xs text-ink-400">{item.label}</p>
+              <p className={`mt-1 font-mono text-xl font-semibold tabular-nums ${item.accent}`}>
+                {item.value}
+              </p>
+            </div>
+          ))}
+          {uploadElapsedMs === null ? (
+            <p className="text-[11px] leading-relaxed text-ink-500 sm:col-span-3">
+              {t('studio.timing.uploadNote')}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       {status === 'running' ? (
         <section
