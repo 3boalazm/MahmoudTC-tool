@@ -115,6 +115,35 @@ export default async function EnginesPage() {
                   {t('engines.dashboard')} ↗
                 </a>
               </div>
+
+              <details className="mt-4 rounded-2xl border border-ink-500/15 bg-surface-1/50 p-3">
+                <summary className="cursor-pointer text-xs font-semibold text-ink-200">
+                  {t('engines.apiKeyGuide.heading')}
+                </summary>
+                <ol className="mt-3 list-decimal space-y-2 ps-5 text-xs leading-relaxed text-ink-400">
+                  <li>
+                    {t('engines.apiKeyGuide.step1')}{' '}
+                    <a href={engine.signupUrl} target="_blank" rel="noreferrer noopener" className="font-semibold text-iris-300 hover:text-iris-200">
+                      {t('engines.apiKeyGuide.createAccount')} ↗
+                    </a>
+                  </li>
+                  <li>
+                    {t('engines.apiKeyGuide.step2')}{' '}
+                    <a href={engine.dashboardUrl} target="_blank" rel="noreferrer noopener" className="font-semibold text-iris-300 hover:text-iris-200">
+                      {t('engines.dashboard')} ↗
+                    </a>
+                  </li>
+                  <li>
+                    {t('engines.apiKeyGuide.step3')}{' '}
+                    <Link href="/settings" className="font-semibold text-iris-300 hover:text-iris-200">
+                      {t('engines.apiKeyGuide.settings')} ↗
+                    </Link>
+                  </li>
+                </ol>
+                <p className="mt-3 text-[11px] leading-relaxed text-ink-500">
+                  {t('engines.apiKeyGuide.note', { key: engine.keyVar })}
+                </p>
+              </details>
             </article>
           );
         })}
