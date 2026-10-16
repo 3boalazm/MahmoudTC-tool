@@ -446,25 +446,22 @@ export default function TranscriptionStudio() {
   }, [status, elapsedMs, plan, uploadProgress, modelFor, t]);
 
   const mergeSpeakers = useCallback((from, to) => {
-    if (from === null || from === undefined || to === null || to === undefined || String(from) === String(to)) return;
-    setResult((current) => {
-      if (!current) return current;
-      const remap = (items) => (items ?? []).map((item) => String(item.speaker) === String(from) ? { ...item, speaker: to } : item);
-      const updated = { ...current, segments: remap(current.segments), words: remap(current.words) };
-      setText(formatTranscriptSegments(updated.segments, updated.text, {
-        showSpeakers,
-        showTimeline,
-        speakerLabel: (number) => t('transcript.speaker', { number }),
-      }));
-      return updated;
-    });
+    if (!result || from === null || from === undefined || to === null || to === undefined || String(from) === String(to)) return;
+    const remap = (items) => (items ?? []).map((item) => String(item.speaker) === String(from) ? { ...item, speaker: to } : item);
+    const updated = { ...result, segments: remap(result.segments), words: remap(result.words) };
+    setResult(updated);
+    setText(formatTranscriptSegments(updated.segments, updated.text, {
+      showSpeakers,
+      showTimeline,
+      speakerLabel: (number) => t('transcript.speaker', { number }),
+    }));
     setSpeakerNames((current) => {
       const next = { ...current };
       if (!next[to] && next[from]) next[to] = next[from];
       delete next[from];
       return next;
     });
-  }, [showSpeakers, showTimeline, t]);
+  }, [result, showSpeakers, showTimeline, t]);
 
   const canRun = Boolean(audio) && status !== 'running' && !isRecordingBusy && plan.chain.length > 0;
 
