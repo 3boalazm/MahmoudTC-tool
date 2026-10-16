@@ -65,6 +65,7 @@ export default function TranscriptPanel({
 }) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
+  const [expandedSpeakerId, setExpandedSpeakerId] = useState(null);
   const copyTimer = useRef(null);
   const textareaRef = useRef(null);
 
@@ -205,8 +206,8 @@ export default function TranscriptPanel({
               </label>
             </div>
             {showSpeakers && speakers.length > 0 ? (
-              <section className="mt-4 rounded-2xl border border-iris-400/25 bg-iris-500/5 p-4" aria-labelledby="speaker-names-heading">
-                <div className="mb-3">
+              <section className="mt-4 w-full rounded-2xl border border-iris-400/25 bg-iris-500/5 p-2.5 sm:p-3" aria-labelledby="speaker-names-heading">
+                <div className="px-1 pb-2">
                   <h3 id="speaker-names-heading" className="text-sm font-semibold text-ink-100">
                     {t('transcript.speakerNames.heading')}
                   </h3>
@@ -214,33 +215,76 @@ export default function TranscriptPanel({
                     {t('transcript.speakerNames.hint')}
                   </p>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {speakers.map(({ id, number }) => (
-                    <div key={number} className="min-w-0 rounded-xl border border-ink-500/15 p-3">
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-medium text-ink-300">{t('transcript.speaker', { number })}</span>
-                        <input
-                          type="text"
-                          value={speakerNames[id] ?? ''}
-                          onChange={(event) => onSpeakerNameChange(id, event.target.value)}
-                          placeholder={t('transcript.speakerNames.placeholder', { number })}
-                          maxLength={80}
-                          className="w-full rounded-xl border border-ink-500/20 bg-surface-1/80 px-3 py-2.5 text-sm text-ink-100 outline-none transition placeholder:text-ink-500 focus:border-iris-400/60"
-                        />
-                      </label>
-                      {speakers.length > 1 ? (
-                        <label className="mt-2 block">
-                          <span className="mb-1 block text-[11px] text-ink-400">This is the same person as…</span>
-                          <select defaultValue="" onChange={(event) => { if (event.target.value !== '') onMergeSpeakers(id, event.target.value); event.target.value = ''; }} className="w-full rounded-lg border border-ink-500/20 bg-surface-2 px-2.5 py-2 text-xs text-ink-100">
-                            <option value="">Keep separate</option>
-                            {speakers.filter((other) => String(other.id) !== String(id)).map((other) => (
-                              <option key={String(other.id)} value={String(other.id)}>{t('transcript.speaker', { number: other.number })}</option>
-                            ))}
-                          </select>
-                        </label>
-                      ) : null}
-                    </div>
-                  ))}
+                <div className="space-y-1.5">
+                  {speakers.map(({ id, number }) => {
+                    const isExpanded = String(expandedSpeakerId) === String(id);
+                    const speakerName = speakerNames[id]?.trim();
+                    return (
+                      <div key={String(id)} className="w-full overflow-hidden rounded-xl border border-ink-500/15 bg-surface-1/50">
+                        <button
+                          type="button"
+                          aria-expanded={isExpanded}
+                          aria-controls={`speaker-details-${String(id).replace(/[^a-zA-Z0-9_-]/g, '_')}`}
+                          onClick={() => setExpandedSpeakerId(isExpanded ? null : id)}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-start transition hover:bg-surface-2/70"
+                        >
+                          <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-iris-500/15 text-[11px] font-semibold text-iris-300">
+                            {number}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink-100">
+                            {speakerName || t('transcript.speaker', { number })}
+                          </span>
+                          <span className="shrink-0 text-[10px] text-ink-400">
+                            {isExpanded ? '− Close' : '+ Edit / merge'}
+                          </span>
+                        </button>
+                        {isExpanded ? (
+                          <div id={`speaker-details-${String(id).replace(/[^a-zA-Z0-9_-]/g, '_')}`} className="w-full border-t border-ink-500/15 p-3 sm:p-4">
+                            <div className="grid w-full gap-3 sm:grid-cols-2">
+                              <label className="block min-w-0">
+                                <span className="mb-1.5 block text-xs font-medium text-ink-300">
+                                  Name for {t('transcript.speaker', { number })}
+                                </span>
+                                <input
+                                  type="text"
+                                  value={speakerNames[id] ?? ''}
+                                  onChange={(event) => onSpeakerNameChange(id, event.target.value)}
+                                  placeholder={t('transcript.speakerNames.placeholder', { number })}
+                                  maxLength={80}
+                                  className="w-full rounded-xl border border-ink-500/20 bg-surface-1/80 px-3 py-2.5 text-sm text-ink-100 outline-none transition placeholder:text-ink-500 focus:border-iris-400/60"
+                                />
+                              </label>
+                              {speakers.length > 1 ? (
+                                <label className="block min-w-0">
+                                  <span className="mb-1.5 block text-xs font-medium text-ink-300">
+                                    Same person as
+                                  </span>
+                                  <select
+                                    defaultValue=""
+                                    onChange={(event) => {
+                                      const target = event.target.value;
+                                      if (target !== '') {
+                                        onMergeSpeakers(id, target);
+                                        setExpandedSpeakerId(target);
+                                      }
+                                    }}
+                                    className="w-full rounded-xl border border-ink-500/20 bg-surface-2 px-3 py-2.5 text-sm text-ink-100"
+                                  >
+                                    <option value="">Keep as separate speaker</option>
+                                    {speakers.filter((other) => String(other.id) !== String(id)).map((other) => (
+                                      <option key={String(other.id)} value={String(other.id)}>
+                                        {speakerNames[other.id]?.trim() || t('transcript.speaker', { number: other.number })}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             ) : null}

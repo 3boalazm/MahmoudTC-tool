@@ -38,7 +38,24 @@ import {
   uploadToBlob,
 } from '@/lib/client/api';
 import { engineLabel, formatBytes, formatDuration, formatElapsed, formatTranscriptSegments, modelLabel } from '@/lib/client/format';
+
 import { DEFAULT_ENGINE_ORDER, ENGINES, ENGINE_IDS } from '@/lib/engines-meta';
+
+function speakerLabelForSegments(segments, number, names, t) {
+  const ids = [];
+  const seen = new Set();
+  for (const segment of segments ?? []) {
+    const id = segment?.speaker;
+    if (id === null || id === undefined || id === '') continue;
+    const key = String(id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    ids.push(id);
+  }
+  const id = ids[number - 1];
+  return (id !== undefined ? names[id]?.trim() : '') || t('transcript.speaker', { number });
+}
+
 
 /**
  * Optimistic placeholder shown until /api/health answers: every engine the
@@ -362,23 +379,24 @@ export default function TranscriptionStudio() {
       setText(formatTranscriptSegments(result.segments, result.text, {
         showSpeakers: nextShowSpeakers,
         showTimeline: nextShowTimeline,
-        speakerLabel: (number) => speakerNames[number]?.trim() || t('transcript.speaker', { number }),
+        speakerLabel: (number) => speakerLabelForSegments(result.segments, number, speakerNames, t),
       }));
     }
   }, [result, showSpeakers, showTimeline, speakerNames, t]);
 
-  const updateSpeakerName = useCallback((number, name) => {
-    const nextNames = { ...speakerNames, [number]: name };
-    setSpeakerNames(nextNames);
-    if (result) {
-      setText(formatTranscriptSegments(result.segments, result.text, {
-        showSpeakers,
-        showTimeline,
-        speakerLabel: (speakerNumber) =>
-          nextNames[speakerNumber]?.trim() || t('transcript.speaker', { number: speakerNumber }),
-      }));
-    }
-  }, [result, showSpeakers, showTimeline, speakerNames, t]);
+  const updateSpeakerName = useCallback((speakerId, name) => {
+    setSpeakerNames((current) => {
+      const nextNames = { ...current, [speakerId]: name };
+      if (result) {
+        setText(formatTranscriptSegments(result.segments, result.text, {
+          showSpeakers,
+          showTimeline,
+          speakerLabel: (number) => speakerLabelForSegments(result.segments, number, nextNames, t),
+        }));
+      }
+      return nextNames;
+    });
+  }, [result, showSpeakers, showTimeline, t]);
 
   /* -------------------------------------------------- keyboard shortcuts */
   useEffect(() => {
@@ -449,19 +467,17 @@ export default function TranscriptionStudio() {
     if (!result || from === null || from === undefined || to === null || to === undefined || String(from) === String(to)) return;
     const remap = (items) => (items ?? []).map((item) => String(item.speaker) === String(from) ? { ...item, speaker: to } : item);
     const updated = { ...result, segments: remap(result.segments), words: remap(result.words) };
+    const nextNames = { ...speakerNames };
+    if (!nextNames[to] && nextNames[from]) nextNames[to] = nextNames[from];
+    delete nextNames[from];
     setResult(updated);
+    setSpeakerNames(nextNames);
     setText(formatTranscriptSegments(updated.segments, updated.text, {
       showSpeakers,
       showTimeline,
-      speakerLabel: (number) => t('transcript.speaker', { number }),
+      speakerLabel: (number) => speakerLabelForSegments(updated.segments, number, nextNames, t),
     }));
-    setSpeakerNames((current) => {
-      const next = { ...current };
-      if (!next[to] && next[from]) next[to] = next[from];
-      delete next[from];
-      return next;
-    });
-  }, [result, showSpeakers, showTimeline, t]);
+  }, [result, speakerNames, showSpeakers, showTimeline, t]);
 
   const canRun = Boolean(audio) && status !== 'running' && !isRecordingBusy && plan.chain.length > 0;
 
@@ -775,6 +791,7 @@ export default function TranscriptionStudio() {
           speakerNames={speakerNames}
           speakers={speakers}
           onSpeakerNameChange={updateSpeakerName}
+          onMergeSpeakers={mergeSpeakers}
           onShowSpeakersChange={(checked) => updateTranscriptOptions({ showSpeakers: checked })}
           onShowTimelineChange={(checked) => updateTranscriptOptions({ showTimeline: checked })}
         />
