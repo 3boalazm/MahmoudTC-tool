@@ -493,6 +493,8 @@ async function releaseSource(audioUrl) {
  * of adding one case here plus one entry in `lib/engines-meta.js`.
  */
 async function runEngine(engine, audio, { language, credentials = {}, diarization = true }) {
+  // Egyptian Arabic is a Deepgram-specific locale; other providers receive generic Arabic.
+  const engineLanguage = engine !== 'deepgram' && String(language).toLowerCase() === 'ar-eg' ? 'ar' : language;
   const config = resolveEngineConfig(engine, credentials) ?? {};
 
   switch (engine) {
@@ -502,7 +504,7 @@ async function runEngine(engine, audio, { language, credentials = {}, diarizatio
         model: config.model,
         timeoutMs: config.timeoutMs,
         baseUrl: config.baseUrl,
-        language,
+        language: engineLanguage,
         diarization,
       });
     case 'gladia':
@@ -512,7 +514,7 @@ async function runEngine(engine, audio, { language, credentials = {}, diarizatio
         pollTimeoutMs: config.pollTimeoutMs,
         pollIntervalMs: config.pollIntervalMs,
         baseUrl: config.baseUrl,
-        language,
+        language: engineLanguage,
         diarization,
       });
     case 'assemblyai':
@@ -523,7 +525,7 @@ async function runEngine(engine, audio, { language, credentials = {}, diarizatio
         pollTimeoutMs: config.pollTimeoutMs,
         pollIntervalMs: config.pollIntervalMs,
         baseUrl: config.baseUrl,
-        language,
+        language: engineLanguage,
         diarization,
       });
     case 'speechmatics':
@@ -534,7 +536,7 @@ async function runEngine(engine, audio, { language, credentials = {}, diarizatio
         pollTimeoutMs: config.pollTimeoutMs,
         pollIntervalMs: config.pollIntervalMs,
         baseUrl: config.baseUrl,
-        language,
+        language: engineLanguage,
         diarization,
       });
     default:
@@ -587,10 +589,12 @@ function applySpeakerMode(result, speakerMode) {
 }
 
 function normaliseLanguage(value) {
-  const language = String(value ?? '').trim().toLowerCase();
+  const raw = String(value ?? '').trim();
+  const language = raw.toLowerCase();
   if (!language || language === 'auto') return '';
   // Guard against query-string injection — language codes are short tokens.
-  return /^[a-z]{2}(-[a-z0-9]{2,8})?$/.test(language) ? language : '';
+  if (!/^[a-z]{2}(-[a-z0-9]{2,8})?$/i.test(raw)) return '';
+  return language === 'ar-eg' ? 'ar-EG' : language;
 }
 
 function readBoolean(value, fallback) {
