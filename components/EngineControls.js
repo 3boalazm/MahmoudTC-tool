@@ -19,6 +19,7 @@ export const LANGUAGES = [
   '',
   'en',
   'ar',
+  'ar-EG',
   'zh',
   'nl',
   'fr',
@@ -79,6 +80,8 @@ export default function EngineControls({
   onFallbackChange,
   language,
   onLanguageChange,
+  speakerMode = 'auto',
+  onSpeakerModeChange,
   engines = [],
   fallbackOptionEnabled = true,
   disabled = false,
@@ -281,6 +284,16 @@ export default function EngineControls({
             ))}
           </select>
         </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-ink-500/20 bg-surface-1/60 p-3.5">
+        <label htmlFor="speaker-mode-select" className="block text-sm font-medium text-ink-100">Speaker detection</label>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-ink-400">Choose one speaker to avoid false labels, or keep speaker separation for interviews. Auto still relies on the selected engine.</p>
+        <select id="speaker-mode-select" value={speakerMode} disabled={disabled} onChange={(event) => onSpeakerModeChange(event.target.value)} className="mt-2.5 w-full rounded-xl border border-ink-500/25 bg-surface-2 px-3 py-2 text-sm text-ink-100 focus:border-iris-400">
+          <option value="auto">Auto (engine labels speakers)</option>
+          <option value="single">Single speaker (disable diarization)</option>
+          <option value="multiple">Multiple speakers (enable diarization)</option>
+        </select>
       </div>
 
       <p className="mt-4 flex items-start gap-2 text-[11px] leading-relaxed text-ink-500">

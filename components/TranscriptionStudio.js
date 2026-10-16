@@ -59,6 +59,7 @@ export default function TranscriptionStudio() {
   const [engine, setEngine] = useState('auto');
   const [fallback, setFallback] = useState(true);
   const [language, setLanguage] = useState('');
+  const [speakerMode, setSpeakerMode] = useState('auto');
   const [availability, setAvailability] = useState(DEFAULT_AVAILABILITY);
   /** Engine metadata straight from the deployment (order, keys, accents). */
   const [engines, setEngines] = useState(FALLBACK_ENGINE_LIST);
@@ -264,6 +265,7 @@ export default function TranscriptionStudio() {
         engine,
         fallback: fallback && fallbackOptionEnabled,
         language,
+        speakerMode,
         durationSeconds: audio.durationSeconds,
         signal: controller.signal,
       });
@@ -314,6 +316,7 @@ export default function TranscriptionStudio() {
     fallback,
     fallbackOptionEnabled,
     language,
+    speakerMode,
     largeUploads.enabled,
     limits.maxUploadMb,
     status,
@@ -442,6 +445,24 @@ export default function TranscriptionStudio() {
     return t('studio.stage.long');
   }, [status, elapsedMs, plan, uploadProgress, modelFor, t]);
 
+  const mergeSpeakers = useCallback((from, to) => {
+    if (!result || from === null || from === undefined || to === null || to === undefined || String(from) === String(to)) return;
+    const remap = (items) => (items ?? []).map((item) => String(item.speaker) === String(from) ? { ...item, speaker: to } : item);
+    const updated = { ...result, segments: remap(result.segments), words: remap(result.words) };
+    setResult(updated);
+    setText(formatTranscriptSegments(updated.segments, updated.text, {
+      showSpeakers,
+      showTimeline,
+      speakerLabel: (number) => t('transcript.speaker', { number }),
+    }));
+    setSpeakerNames((current) => {
+      const next = { ...current };
+      if (!next[to] && next[from]) next[to] = next[from];
+      delete next[from];
+      return next;
+    });
+  }, [result, showSpeakers, showTimeline, t]);
+
   const canRun = Boolean(audio) && status !== 'running' && !isRecordingBusy && plan.chain.length > 0;
 
   return (
@@ -467,6 +488,8 @@ export default function TranscriptionStudio() {
         onFallbackChange={setFallback}
         language={language}
         onLanguageChange={setLanguage}
+        speakerMode={speakerMode}
+        onSpeakerModeChange={setSpeakerMode}
         engines={engines}
         fallbackOptionEnabled={fallbackOptionEnabled}
         disabled={status === 'running'}

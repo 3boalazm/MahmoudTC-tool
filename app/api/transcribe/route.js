@@ -141,6 +141,7 @@ export async function POST(request) {
   }
 
   const language = normaliseLanguage(getField('language'));
+  const speakerMode = normaliseSpeakerMode(getField('speakerMode'));
   const clientDuration = Number.parseFloat(String(getField('durationSeconds') ?? ''));
   const audio = audioUrl ? { url: audioUrl, filename } : { buffer, contentType, filename };
 
@@ -155,7 +156,7 @@ export async function POST(request) {
     const nextEngine = plan[index + 1];
 
     try {
-      const result = await runEngine(engine, audio, { language, credentials });
+      const result = await runEngine(engine, audio, { language, credentials, diarization: speakerMode !== 'single' });
 
       if (result.text) {
         attempts.push(successEntry(engine, result));
@@ -170,7 +171,8 @@ export async function POST(request) {
         await releaseSource(audioUrl);
         return jsonResponse(
           buildSuccessBody({
-            result,
+            result: applySpeakerMode(result, speakerMode),
+            speakerMode,
             attempts,
             plan,
             engine,
@@ -490,7 +492,9 @@ async function releaseSource(audioUrl) {
  * URL — and returns the same normalised output, so adding an engine is a matter
  * of adding one case here plus one entry in `lib/engines-meta.js`.
  */
-async function runEngine(engine, audio, { language, credentials = {} }) {
+async function runEngine(engine, audio, { language, credentials = {}, diarization = true }) {
+  // Egyptian Arabic is a Deepgram-specific locale; other providers receive generic Arabic.
+  const engineLanguage = engine !== 'deepgram' && String(language).toLowerCase() === 'ar-eg' ? 'ar' : language;
   const config = resolveEngineConfig(engine, credentials) ?? {};
 
   switch (engine) {
@@ -500,7 +504,8 @@ async function runEngine(engine, audio, { language, credentials = {} }) {
         model: config.model,
         timeoutMs: config.timeoutMs,
         baseUrl: config.baseUrl,
-        language,
+        language: engineLanguage,
+        diarization,
       });
     case 'gladia':
       return transcribeWithGladia(audio, {
@@ -509,7 +514,8 @@ async function runEngine(engine, audio, { language, credentials = {} }) {
         pollTimeoutMs: config.pollTimeoutMs,
         pollIntervalMs: config.pollIntervalMs,
         baseUrl: config.baseUrl,
-        language,
+        language: engineLanguage,
+        diarization,
       });
     case 'assemblyai':
       return transcribeWithAssemblyAI(audio, {
@@ -519,7 +525,8 @@ async function runEngine(engine, audio, { language, credentials = {} }) {
         pollTimeoutMs: config.pollTimeoutMs,
         pollIntervalMs: config.pollIntervalMs,
         baseUrl: config.baseUrl,
-        language,
+        language: engineLanguage,
+        diarization,
       });
     case 'speechmatics':
       return transcribeWithSpeechmatics(audio, {
@@ -529,7 +536,8 @@ async function runEngine(engine, audio, { language, credentials = {} }) {
         pollTimeoutMs: config.pollTimeoutMs,
         pollIntervalMs: config.pollIntervalMs,
         baseUrl: config.baseUrl,
-        language,
+        language: engineLanguage,
+        diarization,
       });
     default:
       throw new TranscriptionError(
@@ -566,11 +574,27 @@ function buildEnginePlan({ requestedEngine, wantsFallback, availability }) {
   return [requestedEngine, ...chain.filter((engine) => engine !== requestedEngine)];
 }
 
+function normaliseSpeakerMode(value) {
+  const mode = String(value ?? 'auto').trim().toLowerCase();
+  return ['single', 'multiple', 'auto'].includes(mode) ? mode : 'auto';
+}
+
+function applySpeakerMode(result, speakerMode) {
+  if (speakerMode !== 'single') return result;
+  return {
+    ...result,
+    segments: (result.segments ?? []).map((segment) => ({ ...segment, speaker: null })),
+    words: (result.words ?? []).map((word) => ({ ...word, speaker: null })),
+  };
+}
+
 function normaliseLanguage(value) {
-  const language = String(value ?? '').trim().toLowerCase();
+  const raw = String(value ?? '').trim();
+  const language = raw.toLowerCase();
   if (!language || language === 'auto') return '';
   // Guard against query-string injection — language codes are short tokens.
-  return /^[a-z]{2}(-[a-z0-9]{2,8})?$/.test(language) ? language : '';
+  if (!/^[a-z]{2}(-[a-z0-9]{2,8})?$/i.test(raw)) return '';
+  return language === 'ar-eg' ? 'ar-EG' : language;
 }
 
 function readBoolean(value, fallback) {
@@ -627,6 +651,7 @@ function failureEntry(engine, error) {
 
 function buildSuccessBody({
   result,
+  speakerMode = 'auto',
   attempts,
   plan,
   engine,
@@ -664,6 +689,7 @@ function buildSuccessBody({
     fallbackUsed,
     words: result.words ?? [],
     segments: result.segments ?? [],
+    speakerMode,
     // `detail` is intentionally dropped: it is for server logs, not the client.
     attempts: attempts.map(({ detail: _detail, ...rest }) => rest),
     warnings,

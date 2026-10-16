@@ -59,6 +59,7 @@ export default function TranscriptPanel({
   speakerNames = {},
   speakers = [],
   onSpeakerNameChange,
+  onMergeSpeakers,
   onShowSpeakersChange,
   onShowTimelineChange,
 }) {
@@ -87,7 +88,7 @@ export default function TranscriptPanel({
     downloadFile(`${fileName}.txt`, buildPlainText(text, { wrapAt: 90 }));
   }, [fileName, text]);
 
-  const srt = useMemo(() => (isDone ? buildSrt(result?.segments, { showSpeakers, speakerLabel: (number) => speakerNames[number]?.trim() || t('transcript.speaker', { number }) }) : null), [isDone, result?.segments, showSpeakers, speakerNames, t]);
+  const srt = useMemo(() => (isDone ? buildSrt(result?.segments, { showSpeakers, speakerLabel: (number) => { const speaker = speakers[number - 1]; return speakerNames[speaker?.id]?.trim() || t('transcript.speaker', { number }); } }) : null), [isDone, result?.segments, showSpeakers, speakerNames, t]);
   const handleDownloadSrt = useCallback(() => {
     if (srt) downloadFile(`${fileName}.srt`, srt, 'application/x-subrip');
   }, [fileName, srt]);
@@ -214,7 +215,33 @@ export default function TranscriptPanel({
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {speakers.map(({ number }) => (
+                  {speakers.map(({ id, number }) => (
+                    <div key={number} className="min-w-0 rounded-xl border border-ink-500/15 p-3">
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-medium text-ink-300">{t('transcript.speaker', { number })}</span>
+                        <input
+                          type="text"
+                          value={speakerNames[id] ?? ''}
+                          onChange={(event) => onSpeakerNameChange(id, event.target.value)}
+                          placeholder={t('transcript.speakerNames.placeholder', { number })}
+                          maxLength={80}
+                          className="w-full rounded-xl border border-ink-500/20 bg-surface-1/80 px-3 py-2.5 text-sm text-ink-100 outline-none transition placeholder:text-ink-500 focus:border-iris-400/60"
+                        />
+                      </label>
+                      {speakers.length > 1 ? (
+                        <label className="mt-2 block">
+                          <span className="mb-1 block text-[11px] text-ink-400">This is the same person as…</span>
+                          <select defaultValue="" onChange={(event) => { if (event.target.value !== '') onMergeSpeakers(id, event.target.value); event.target.value = ''; }} className="w-full rounded-lg border border-ink-500/20 bg-surface-2 px-2.5 py-2 text-xs text-ink-100">
+                            <option value="">Keep separate</option>
+                            {speakers.filter((other) => String(other.id) !== String(id)).map((other) => (
+                              <option key={String(other.id)} value={String(other.id)}>{t('transcript.speaker', { number: other.number })}</option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
                     <label key={number} className="block min-w-0">
                       <span className="mb-1.5 block text-xs font-medium text-ink-300">
                         {t('transcript.speaker', { number })}
