@@ -15,6 +15,18 @@ test('Deepgram requests the current speaker diarization model by default', () =>
   assert.equal(query.has('diarize'), false);
 });
 
+test('Deepgram can disable diarization for a single-speaker recording', () => {
+  const query = new URLSearchParams(buildDeepgramQuery({ language: 'en', diarization: false }));
+  assert.equal(query.get('diarize'), 'false');
+  assert.equal(query.has('diarize_model'), false);
+});
+
+test('Deepgram preserves locale casing for Egyptian Arabic', () => {
+  const query = new URLSearchParams(buildDeepgramQuery({ language: 'ar-EG' }));
+  assert.equal(query.get('language'), 'ar-EG');
+  assert.equal(query.get('detect_language'), null);
+});
+
 test('Deepgram parser groups consecutive words by speaker', () => {
   const parsed = parseDeepgramResponse({
     results: {
