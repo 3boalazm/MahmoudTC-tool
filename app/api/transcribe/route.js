@@ -141,6 +141,7 @@ export async function POST(request) {
   }
 
   const language = normaliseLanguage(getField('language'));
+  const speakerMode = normaliseSpeakerMode(getField('speakerMode'));
   const clientDuration = Number.parseFloat(String(getField('durationSeconds') ?? ''));
   const audio = audioUrl ? { url: audioUrl, filename } : { buffer, contentType, filename };
 
@@ -155,7 +156,7 @@ export async function POST(request) {
     const nextEngine = plan[index + 1];
 
     try {
-      const result = await runEngine(engine, audio, { language, credentials });
+      const result = await runEngine(engine, audio, { language, credentials, diarization: speakerMode !== 'single' });
 
       if (result.text) {
         attempts.push(successEntry(engine, result));
@@ -170,7 +171,8 @@ export async function POST(request) {
         await releaseSource(audioUrl);
         return jsonResponse(
           buildSuccessBody({
-            result,
+            result: applySpeakerMode(result, speakerMode),
+            speakerMode,
             attempts,
             plan,
             engine,
@@ -490,7 +492,7 @@ async function releaseSource(audioUrl) {
  * URL — and returns the same normalised output, so adding an engine is a matter
  * of adding one case here plus one entry in `lib/engines-meta.js`.
  */
-async function runEngine(engine, audio, { language, credentials = {} }) {
+async function runEngine(engine, audio, { language, credentials = {}, diarization = true }) {
   const config = resolveEngineConfig(engine, credentials) ?? {};
 
   switch (engine) {
@@ -501,6 +503,7 @@ async function runEngine(engine, audio, { language, credentials = {} }) {
         timeoutMs: config.timeoutMs,
         baseUrl: config.baseUrl,
         language,
+        diarization,
       });
     case 'gladia':
       return transcribeWithGladia(audio, {
@@ -510,6 +513,7 @@ async function runEngine(engine, audio, { language, credentials = {} }) {
         pollIntervalMs: config.pollIntervalMs,
         baseUrl: config.baseUrl,
         language,
+        diarization,
       });
     case 'assemblyai':
       return transcribeWithAssemblyAI(audio, {
@@ -520,6 +524,7 @@ async function runEngine(engine, audio, { language, credentials = {} }) {
         pollIntervalMs: config.pollIntervalMs,
         baseUrl: config.baseUrl,
         language,
+        diarization,
       });
     case 'speechmatics':
       return transcribeWithSpeechmatics(audio, {
@@ -530,6 +535,7 @@ async function runEngine(engine, audio, { language, credentials = {} }) {
         pollIntervalMs: config.pollIntervalMs,
         baseUrl: config.baseUrl,
         language,
+        diarization,
       });
     default:
       throw new TranscriptionError(
@@ -564,6 +570,20 @@ function buildEnginePlan({ requestedEngine, wantsFallback, availability }) {
 
   // Pinned engine first, then everything else in the configured order.
   return [requestedEngine, ...chain.filter((engine) => engine !== requestedEngine)];
+}
+
+function normaliseSpeakerMode(value) {
+  const mode = String(value ?? 'auto').trim().toLowerCase();
+  return ['single', 'multiple', 'auto'].includes(mode) ? mode : 'auto';
+}
+
+function applySpeakerMode(result, speakerMode) {
+  if (speakerMode !== 'single') return result;
+  return {
+    ...result,
+    segments: (result.segments ?? []).map((segment) => ({ ...segment, speaker: null })),
+    words: (result.words ?? []).map((word) => ({ ...word, speaker: null })),
+  };
 }
 
 function normaliseLanguage(value) {
@@ -627,6 +647,7 @@ function failureEntry(engine, error) {
 
 function buildSuccessBody({
   result,
+  speakerMode = 'auto',
   attempts,
   plan,
   engine,
@@ -664,6 +685,7 @@ function buildSuccessBody({
     fallbackUsed,
     words: result.words ?? [],
     segments: result.segments ?? [],
+    speakerMode,
     // `detail` is intentionally dropped: it is for server logs, not the client.
     attempts: attempts.map(({ detail: _detail, ...rest }) => rest),
     warnings,
