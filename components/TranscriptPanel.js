@@ -88,7 +88,7 @@ export default function TranscriptPanel({
     downloadFile(`${fileName}.txt`, buildPlainText(text, { wrapAt: 90 }));
   }, [fileName, text]);
 
-  const srt = useMemo(() => (isDone ? buildSrt(result?.segments, { showSpeakers, speakerLabel: (number) => speakerNames[number]?.trim() || t('transcript.speaker', { number }) }) : null), [isDone, result?.segments, showSpeakers, speakerNames, t]);
+  const srt = useMemo(() => (isDone ? buildSrt(result?.segments, { showSpeakers, speakerLabel: (number) => { const speaker = speakers[number - 1]; return speakerNames[speaker?.id]?.trim() || t('transcript.speaker', { number }); } }) : null), [isDone, result?.segments, showSpeakers, speakerNames, t]);
   const handleDownloadSrt = useCallback(() => {
     if (srt) downloadFile(`${fileName}.srt`, srt, 'application/x-subrip');
   }, [fileName, srt]);
@@ -221,8 +221,8 @@ export default function TranscriptPanel({
                         <span className="mb-1.5 block text-xs font-medium text-ink-300">{t('transcript.speaker', { number })}</span>
                         <input
                           type="text"
-                          value={speakerNames[number] ?? ''}
-                          onChange={(event) => onSpeakerNameChange(number, event.target.value)}
+                          value={speakerNames[id] ?? ''}
+                          onChange={(event) => onSpeakerNameChange(id, event.target.value)}
                           placeholder={t('transcript.speakerNames.placeholder', { number })}
                           maxLength={80}
                           className="w-full rounded-xl border border-ink-500/20 bg-surface-1/80 px-3 py-2.5 text-sm text-ink-100 outline-none transition placeholder:text-ink-500 focus:border-iris-400/60"
