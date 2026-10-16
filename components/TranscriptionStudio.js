@@ -460,6 +460,7 @@ export default function TranscriptionStudio() {
     });
     setSpeakerNames((current) => {
       const next = { ...current };
+      if (!next[to] && next[from]) next[to] = next[from];
       delete next[from];
       return next;
     });
