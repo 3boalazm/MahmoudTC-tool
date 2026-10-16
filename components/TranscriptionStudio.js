@@ -385,16 +385,18 @@ export default function TranscriptionStudio() {
   }, [result, showSpeakers, showTimeline, speakerNames, t]);
 
   const updateSpeakerName = useCallback((speakerId, name) => {
-    const nextNames = { ...speakerNames, [speakerId]: name };
-    setSpeakerNames(nextNames);
-    if (result) {
-      setText(formatTranscriptSegments(result.segments, result.text, {
-        showSpeakers,
-        showTimeline,
-        speakerLabel: (number) => speakerLabelForSegments(result.segments, number, nextNames, t),
-      }));
-    }
-  }, [result, showSpeakers, showTimeline, speakerNames, t]);
+    setSpeakerNames((current) => {
+      const nextNames = { ...current, [speakerId]: name };
+      if (result) {
+        setText(formatTranscriptSegments(result.segments, result.text, {
+          showSpeakers,
+          showTimeline,
+          speakerLabel: (number) => speakerLabelForSegments(result.segments, number, nextNames, t),
+        }));
+      }
+      return nextNames;
+    });
+  }, [result, showSpeakers, showTimeline, t]);
 
   /* -------------------------------------------------- keyboard shortcuts */
   useEffect(() => {
@@ -789,6 +791,7 @@ export default function TranscriptionStudio() {
           speakerNames={speakerNames}
           speakers={speakers}
           onSpeakerNameChange={updateSpeakerName}
+          onMergeSpeakers={mergeSpeakers}
           onShowSpeakersChange={(checked) => updateTranscriptOptions({ showSpeakers: checked })}
           onShowTimelineChange={(checked) => updateTranscriptOptions({ showTimeline: checked })}
         />
