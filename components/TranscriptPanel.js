@@ -242,21 +242,6 @@ export default function TranscriptPanel({
                     </div>
                   ))}
                 </div>
-                    <label key={number} className="block min-w-0">
-                      <span className="mb-1.5 block text-xs font-medium text-ink-300">
-                        {t('transcript.speaker', { number })}
-                      </span>
-                      <input
-                        type="text"
-                        value={speakerNames[number] ?? ''}
-                        onChange={(event) => onSpeakerNameChange(number, event.target.value)}
-                        placeholder={t('transcript.speakerNames.placeholder', { number })}
-                        maxLength={80}
-                        className="w-full rounded-xl border border-ink-500/20 bg-surface-1/80 px-3 py-2.5 text-sm text-ink-100 outline-none transition placeholder:text-ink-500 focus:border-iris-400/60"
-                      />
-                    </label>
-                  ))}
-                </div>
               </section>
             ) : null}
             <div className="relative mt-4">
