@@ -39,6 +39,8 @@ import {
 } from '@/lib/client/api';
 import { engineLabel, formatBytes, formatDuration, formatElapsed, formatTranscriptSegments, modelLabel } from '@/lib/client/format';
 
+import { DEFAULT_ENGINE_ORDER, ENGINES, ENGINE_IDS } from '@/lib/engines-meta';
+
 function speakerLabelForSegments(segments, number, names, t) {
   const ids = [];
   const seen = new Set();
@@ -54,7 +56,6 @@ function speakerLabelForSegments(segments, number, names, t) {
   return (id !== undefined ? names[id]?.trim() : '') || t('transcript.speaker', { number });
 }
 
-import { DEFAULT_ENGINE_ORDER, ENGINES, ENGINE_IDS } from '@/lib/engines-meta';
 
 /**
  * Optimistic placeholder shown until /api/health answers: every engine the
