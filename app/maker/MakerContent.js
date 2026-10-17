@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useI18n } from '@/components/providers/I18nProvider.js';
-import { InstallBanner } from '@/components/InstallApp.js';
 import { BoltIcon, WaveIcon, FileAudioIcon, LayersIcon, GlobeIcon, SparkIcon } from '@/components/Icons.js';
 
 const CONTACT = {
@@ -15,8 +14,8 @@ const CONTACT = {
 const COPY = {
   en: {
     eyebrow: 'THE PERSON BEHIND THE PRODUCT',
-    lead: 'Good design gets attention.',
-    accent: 'Good systems earn trust.',
+    lead: 'I don’t design brands.',
+    accent: 'I build systems.',
     intro: 'I connect brand thinking, product design, and engineering to turn complicated ideas into clear, useful experiences — from the first sketch to a working product.',
     contact: 'Let’s build something',
     os: 'Explore Aboalazm OS',
@@ -24,17 +23,16 @@ const COPY = {
     clients: 'clients & teams',
     process: 'one connected process',
     roles: ['Brand identity & systems', 'Product design & UX', 'Web engineering & automation'],
-    installEyebrow: 'TAKE THE STUDIO WITH YOU',
-    installTitle: 'Install Speech to Text Studio',
-    installBody: 'Keep the transcription workspace close. Add it to your device for a focused, app-like experience.',
     workEyebrow: 'SELECTED WORK',
     workTitle: 'A few things I’ve helped bring to life.',
     workBody: 'Different problems, same instinct: make the complex feel clear, coherent, and ready to use.',
     projects: [
-      { n: '01', icon: 'audio', type: 'PRODUCT · AI', title: 'Speech to Text Studio', body: 'A bilingual transcription workspace with four speech engines, automatic failover, editable transcripts, and a privacy-minded architecture.', action: 'Explore the product', href: '/studio', internal: true },
-      { n: '02', icon: 'layers', type: 'PERSONAL SYSTEM · WEB APP', title: 'Aboalazm OS', body: 'A personal operating system for work, projects, and the way ideas move from intention to execution.', action: 'Open the OS', href: 'https://aboalazm-os.vercel.app/' },
-      { n: '03', icon: 'globe', type: 'ERP · DIGITAL OPERATIONS', title: 'Nile Pharma ERP', body: 'A connected operations platform shaped around real workflows, traceability, and clearer decisions.', action: 'View the repository', href: 'https://github.com/3boalazm/nile-pharma-erp' },
-      { n: '04', icon: 'spark', type: 'STUDIO · BRAND & DIGITAL', title: 'Code & Canvas', body: 'A creative-technical studio connecting brand identity, digital products, websites, and automation.', action: 'Visit the studio', href: 'https://codeandcanvas.net' },
+      { n: '01', icon: 'layers', group: 'brand', type: 'BRAND IDENTITY · HEALTHCARE', title: 'GAD Heart & Lungs Institute', body: 'A bilingual identity system built from strategy through guidelines, designed to keep a specialist healthcare brand coherent across touchpoints.', action: 'Explore brand work', href: 'https://aboalazm-os.vercel.app/work/gad-institute' },
+      { n: '02', icon: 'spark', group: 'brand', type: 'BRAND SYSTEM · PHARMA', title: 'Nile Pharma Food', body: 'A brand system spanning identity, packaging, and campaign governance for a healthcare and supplements business.', action: 'Explore brand work', href: 'https://aboalazm-os.vercel.app/work/nile-pharma' },
+      { n: '03', icon: 'layers', group: 'brand', type: 'STUDIO IDENTITY · SYSTEM', title: 'Code & Canvas', body: 'A studio identity and design infrastructure connecting the brand, guidelines, and digital presence into one system.', action: 'Explore brand work', href: 'https://aboalazm-os.vercel.app/work/code-canvas' },
+      { n: '04', icon: 'audio', group: 'development', type: 'PRODUCT · AI', title: 'Speech to Text Studio', body: 'A bilingual transcription workspace with four speech engines, automatic failover, editable transcripts, and a privacy-minded architecture.', action: 'Explore the product', href: '/studio', internal: true },
+      { n: '05', icon: 'layers', group: 'development', type: 'PERSONAL SYSTEM · WEB APP', title: 'Aboalazm OS', body: 'A personal operating system for work, projects, and the way ideas move from intention to execution.', action: 'Open the OS', href: 'https://aboalazm-os.vercel.app/' },
+      { n: '06', icon: 'globe', group: 'development', type: 'ERP · DIGITAL OPERATIONS', title: 'Nile Pharma ERP', body: 'A connected operations platform shaped around real workflows, traceability, and clearer decisions.', action: 'View the repository', href: 'https://github.com/3boalazm/nile-pharma-erp' },
     ],
     approachEyebrow: 'HOW I THINK',
     approachTitle: 'Not decoration. Not code for code’s sake.',
@@ -55,8 +53,8 @@ const COPY = {
   },
   ar: {
     eyebrow: 'الشخص اللي ورا المنتج',
-    lead: 'التصميم الجيد يلفت النظر.',
-    accent: 'والأنظمة الجيدة تكسب الثقة.',
+    lead: 'أنا مش بصمّم براندات وبس.',
+    accent: 'أنا ببني أنظمة.',
     intro: 'بجمع بين التفكير في الهوية، وتصميم المنتجات، والهندسة علشان أحوّل الأفكار المعقدة لتجارب واضحة ومفيدة — من أول اسكتش لحد منتج شغال.',
     contact: 'خلينا نبني حاجة',
     os: 'استكشف Aboalazm OS',
@@ -64,17 +62,16 @@ const COPY = {
     clients: 'عميل وفريق',
     process: 'رحلة واحدة متصلة',
     roles: ['هوية وأنظمة العلامات التجارية', 'تصميم المنتجات وتجربة المستخدم', 'هندسة الويب والأتمتة'],
-    installEyebrow: 'خد الاستوديو معاك',
-    installTitle: 'ثبّت Speech to Text Studio',
-    installBody: 'خلّي مساحة التفريغ الصوتي قريبة منك. ثبّت التطبيق على جهازك لتجربة مركزة شبه التطبيقات الأصلية.',
     workEyebrow: 'أعمال مختارة',
     workTitle: 'نماذج لحاجات ساهمت في بنائها.',
     workBody: 'مشاكل مختلفة، لكن بنفس الفكرة: نخلي المعقد واضح ومترابط وجاهز للاستخدام.',
     projects: [
-      { n: '01', icon: 'audio', type: 'منتج رقمي · ذكاء اصطناعي', title: 'Speech to Text Studio', body: 'مساحة تفريغ صوتي ثنائية اللغة بأربعة محرّكات، وتحويل تلقائي عند الفشل، ونص قابل للتحرير، وبنية تراعي الخصوصية.', action: 'استكشف المنتج', href: '/studio', internal: true },
-      { n: '02', icon: 'layers', type: 'نظام شخصي · تطبيق ويب', title: 'Aboalazm OS', body: 'نظام شخصي لتنظيم الشغل والمشاريع وتحويل الأفكار من نية إلى تنفيذ.', action: 'افتح الـ OS', href: 'https://aboalazm-os.vercel.app/' },
-      { n: '03', icon: 'globe', type: 'ERP · عمليات رقمية', title: 'Nile Pharma ERP', body: 'منصة عمليات مترابطة مبنية حول سير الشغل الحقيقي، والتتبّع، وقرارات أوضح.', action: 'شوف الريبو', href: 'https://github.com/3boalazm/nile-pharma-erp' },
-      { n: '04', icon: 'spark', type: 'استوديو · هوية ورقمنة', title: 'Code & Canvas', body: 'استوديو إبداعي وتقني بيجمع بين الهوية البصرية، والمنتجات الرقمية، والمواقع، والأتمتة.', action: 'زور الاستوديو', href: 'https://codeandcanvas.net' },
+      { n: '01', icon: 'layers', group: 'brand', type: 'هوية بصرية · رعاية صحية', title: 'GAD Heart & Lungs Institute', body: 'نظام هوية ثنائي اللغة يبدأ من الاستراتيجية وينتهي بدليل استخدام يحافظ على اتساق العلامة في كل نقاط التواصل.', action: 'استكشف شغل الهوية', href: 'https://aboalazm-os.vercel.app/work/gad-institute' },
+      { n: '02', icon: 'spark', group: 'brand', type: 'نظام علامة · فارما', title: 'Nile Pharma Food', body: 'نظام علامة يشمل الهوية والتغليف وتنظيم الحملات لشركة في مجال الرعاية الصحية والمكملات.', action: 'استكشف شغل الهوية', href: 'https://aboalazm-os.vercel.app/work/nile-pharma' },
+      { n: '03', icon: 'layers', group: 'brand', type: 'هوية استوديو · نظام متكامل', title: 'Code & Canvas', body: 'هوية وبنية تصميمية للاستوديو تربط العلامة والدليل والحضور الرقمي في نظام واحد.', action: 'استكشف شغل الهوية', href: 'https://aboalazm-os.vercel.app/work/code-canvas' },
+      { n: '04', icon: 'audio', group: 'development', type: 'منتج رقمي · ذكاء اصطناعي', title: 'Speech to Text Studio', body: 'مساحة تفريغ صوتي ثنائية اللغة بأربعة محرّكات، وتحويل تلقائي عند الفشل، ونص قابل للتحرير، وبنية تراعي الخصوصية.', action: 'استكشف المنتج', href: '/studio', internal: true },
+      { n: '05', icon: 'layers', group: 'development', type: 'نظام شخصي · تطبيق ويب', title: 'Aboalazm OS', body: 'نظام شخصي لتنظيم الشغل والمشاريع وتحويل الأفكار من نية إلى تنفيذ.', action: 'افتح الـ OS', href: 'https://aboalazm-os.vercel.app/' },
+      { n: '06', icon: 'globe', group: 'development', type: 'ERP · عمليات رقمية', title: 'Nile Pharma ERP', body: 'منصة عمليات مترابطة مبنية حول سير الشغل الحقيقي، والتتبّع، وقرارات أوضح.', action: 'شوف الريبو', href: 'https://github.com/3boalazm/nile-pharma-erp' },
     ],
     approachEyebrow: 'طريقة تفكيري',
     approachTitle: 'مش مجرد شكل. ومش كود لمجرد الكود.',
@@ -135,15 +132,21 @@ export default function MakerContent() {
           </aside>
         </section>
 
-        <section className="maker-install mb-20" aria-label={c.installTitle}>
-          <div className="mb-4"><p className="font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]">{c.installEyebrow}</p><h2 className="mt-2 text-xl font-semibold text-ink-100">{c.installTitle}</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-ink-400">{c.installBody}</p></div>
-          <InstallBanner />
-        </section>
-
         <section className="border-t border-white/[0.09] pt-12 sm:pt-16" aria-labelledby="maker-work-title">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]">{c.workEyebrow}</p><h2 id="maker-work-title" className="mt-3 max-w-2xl text-3xl font-medium tracking-tight text-ink-100 sm:text-4xl">{c.workTitle}</h2></div><p className="max-w-md text-sm leading-7 text-ink-400">{c.workBody}</p></div>
           <div className="mt-8 grid gap-4 md:grid-cols-2">
-            {c.projects.map((p)=><article key={p.n} className="maker-glass group relative flex min-h-[280px] flex-col overflow-hidden rounded-3xl border border-white/[0.09] bg-white/[0.025] p-6 backdrop-blur-xl transition duration-500 hover:-translate-y-1 hover:border-[#FF6B47]/35 hover:bg-white/[0.055] sm:p-7">
+            {c.projects.filter((p) => p.group === 'brand').map((p)=><article key={p.n} className="maker-glass group relative flex min-h-[280px] flex-col overflow-hidden rounded-3xl border border-white/[0.09] bg-white/[0.025] p-6 backdrop-blur-xl transition duration-500 hover:-translate-y-1 hover:border-[#FF6B47]/35 hover:bg-white/[0.055] sm:p-7">
+              <div className="flex items-center justify-between gap-4"><span className="font-mono text-xs text-[#FF8A6D]">{p.n}</span><span className="text-end font-mono text-[9px] uppercase tracking-[0.13em] text-ink-500 sm:text-[10px]">{p.type}</span></div><div className="mt-5 grid size-11 place-items-center rounded-2xl border border-[#FF6B47]/25 bg-[#FF6B47]/[0.08] text-[#FF8A6D]">{p.icon === "audio" ? <FileAudioIcon className="size-5" /> : p.icon === "layers" ? <LayersIcon className="size-5" /> : p.icon === "globe" ? <GlobeIcon className="size-5" /> : <SparkIcon className="size-5" />}</div>
+              <h3 className="mt-7 text-2xl font-medium tracking-tight text-ink-100 sm:text-3xl">{p.title}</h3><p className="mt-3 max-w-lg text-sm leading-7 text-ink-400">{p.body}</p>
+              <div className="mt-auto pt-6">{p.internal?<Link href={p.href} className="inline-flex items-center gap-2 text-sm font-semibold text-ink-200 transition group-hover:text-[#FF8A6D]">{p.action} ↗</Link>:<a href={p.href} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-2 text-sm font-semibold text-ink-200 transition group-hover:text-[#FF8A6D]">{p.action} ↗</a>}</div>
+              <div aria-hidden="true" className="pointer-events-none absolute -bottom-14 -end-10 size-36 rounded-full border border-white/[0.07] transition group-hover:border-[#FF6B47]/25" />
+            </article>)}
+          </div>
+          <div className="mt-14 flex items-end justify-between gap-4 border-t border-white/[0.09] pt-8">
+            <div><p className="font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]">PRODUCTS / ENGINEERING</p><h3 className="mt-3 text-2xl font-medium text-ink-100">{locale === 'ar' ? 'مشاريع الديف والمنتجات الرقمية' : 'Development & digital products'}</h3></div>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {c.projects.filter((p) => p.group === 'development').map((p)=><article key={p.n} className="maker-glass group relative flex min-h-[280px] flex-col overflow-hidden rounded-3xl border border-white/[0.09] bg-white/[0.025] p-6 backdrop-blur-xl transition duration-500 hover:-translate-y-1 hover:border-[#FF6B47]/35 hover:bg-white/[0.055] sm:p-7">
               <div className="flex items-center justify-between gap-4"><span className="font-mono text-xs text-[#FF8A6D]">{p.n}</span><span className="text-end font-mono text-[9px] uppercase tracking-[0.13em] text-ink-500 sm:text-[10px]">{p.type}</span></div><div className="mt-5 grid size-11 place-items-center rounded-2xl border border-[#FF6B47]/25 bg-[#FF6B47]/[0.08] text-[#FF8A6D]">{p.icon === "audio" ? <FileAudioIcon className="size-5" /> : p.icon === "layers" ? <LayersIcon className="size-5" /> : p.icon === "globe" ? <GlobeIcon className="size-5" /> : <SparkIcon className="size-5" />}</div>
               <h3 className="mt-7 text-2xl font-medium tracking-tight text-ink-100 sm:text-3xl">{p.title}</h3><p className="mt-3 max-w-lg text-sm leading-7 text-ink-400">{p.body}</p>
               <div className="mt-auto pt-6">{p.internal?<Link href={p.href} className="inline-flex items-center gap-2 text-sm font-semibold text-ink-200 transition group-hover:text-[#FF8A6D]">{p.action} ↗</Link>:<a href={p.href} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-2 text-sm font-semibold text-ink-200 transition group-hover:text-[#FF8A6D]">{p.action} ↗</a>}</div>
