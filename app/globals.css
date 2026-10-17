@@ -498,3 +498,45 @@
     user-select: none;
   }
 }
+
+
+/* Maker page — scoped adaptation of the Aboalazm OS visual language.
+   Keep the orange accent and glass treatment local to /maker. */
+main[data-maker-page] .maker-glass {
+  -webkit-backdrop-filter: blur(24px) saturate(135%);
+  backdrop-filter: blur(24px) saturate(135%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.045);
+}
+main[data-maker-page] .maker-install .glass-panel {
+  border: 1px solid rgb(255 255 255 / 0.10);
+  background: rgb(255 255 255 / 0.035);
+  -webkit-backdrop-filter: blur(24px) saturate(135%);
+  backdrop-filter: blur(24px) saturate(135%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.045);
+}
+main[data-maker-page] .maker-install .glass-panel > span {
+  color: #ff8a6d;
+  background: rgb(255 107 71 / 0.09);
+  border-color: rgb(255 107 71 / 0.25);
+}
+main[data-maker-page] .maker-install button.bg-iris-500 {
+  background-color: #ff6b47;
+  color: #170b08;
+}
+main[data-maker-page] .maker-install button.bg-iris-500:hover {
+  background-color: #ff8a6d;
+}
+main[data-maker-page] .maker-primary-button {
+  box-shadow: 0 8px 28px rgb(255 107 71 / 0.16), inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+main[data-maker-page] .maker-primary-button:focus-visible,
+main[data-maker-page] .maker-glass:focus-visible {
+  outline: 2px solid #ff8a6d;
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  main[data-maker-page] .maker-glass,
+  main[data-maker-page] .maker-primary-button {
+    transition: none !important;
+  }
+}
