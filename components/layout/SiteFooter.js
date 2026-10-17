@@ -18,6 +18,7 @@ export default function SiteFooter() {
   const { t } = useI18n();
 
   const pages = [
+    { href: '/maker', label: t('nav.maker') },
     { href: '/studio', label: t('nav.studio') },
     { href: '/engines', label: t('nav.engines') },
     { href: '/usage', label: t('nav.usage') },
