@@ -20,6 +20,7 @@ import { useI18n } from '@/components/providers/I18nProvider.js';
 
 const PAGES = [
   { href: '/', key: 'nav.home' },
+  { href: '/maker', key: 'nav.maker' },
   { href: '/studio', key: 'nav.studio' },
   { href: '/engines', key: 'nav.engines' },
   { href: '/usage', key: 'nav.usage' },
