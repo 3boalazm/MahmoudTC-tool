@@ -27,6 +27,7 @@
     "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.8.1",
     "geist": "^1.7.2",
     "next": "^16.4.0",

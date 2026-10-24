@@ -11,6 +11,7 @@
 
 import { GeistMono } from 'geist/font/mono';
 import { cookies, headers } from 'next/headers';
+import { Analytics } from '@vercel/analytics/next';
 
 import I18nProvider from '@/components/providers/I18nProvider.js';
 import ThemeProvider, { THEME_SCRIPT } from '@/components/providers/ThemeProvider.js';
@@ -174,6 +175,7 @@ export default async function RootLayout({ children }) {
             <ServiceWorkerRegistrar />
           </ThemeProvider>
         </I18nProvider>
+        <Analytics />
       </body>
     </html>
   );
