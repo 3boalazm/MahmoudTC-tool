@@ -1,0 +1,17 @@
+flowchart TD
+  Input{Source} -->|Small local file or recording| Bytes[Multipart bytes]
+  Input -->|Large local file and Blob enabled| Upload[Direct public Blob upload]
+  Input -->|Direct media URL| Download[Server bounded download]
+  Upload --> URL[Validated staged URL]
+  Bytes --> Plan[Build configured engine plan]
+  URL --> Plan
+  Download --> Plan
+  Plan --> Try[Run adapter]
+  Try --> Check{Outcome}
+  Check -->|Text| Normalize[Normalize result and attempts]
+  Check -->|Retryable and next available| Try
+  Check -->|Nonretryable or exhausted| Fail[Structured error]
+  Normalize --> Cleanup[Best-effort staged release]
+  Fail --> Cleanup
+  Cleanup --> Return[Return response]
+  Upload -.-> Abandon[Abandoned and early-return cleanup gap]

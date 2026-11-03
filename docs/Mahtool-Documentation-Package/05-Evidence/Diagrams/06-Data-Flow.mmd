@@ -1,0 +1,18 @@
+flowchart LR
+  Device[Device file or microphone] --> Memory[Browser memory and preview]
+  Memory --> Inline[Inline API body]
+  Memory --> Blob[Optional transient public Blob]
+  Link[User direct URL] --> Guard[Validated server download]
+  Cookie[Personal key cookie on device] --> Resolve[Server effective key resolution]
+  Env[Operator environment] --> Resolve
+  Defaults[Tracked reversible defaults - risk] --> Resolve
+  Resolve --> Provider[External provider processing]
+  Inline --> Provider
+  Guard --> Provider
+  Blob --> Provider
+  Provider --> Response[Normalized response]
+  Response --> Text[Browser editable text]
+  Response --> Segments[Provider timed segments]
+  Text --> CopyTXT[Copy and TXT]
+  Segments --> SRT[SRT]
+  Provider --> Local[Per-process attempt counters]

@@ -1,0 +1,16 @@
+flowchart TD
+  Enter[Open studio] --> Choose{Choose source}
+  Choose --> File[Load local file]
+  Choose --> Mic[Grant mic permission and record]
+  Choose --> Link[Paste direct media URL]
+  File --> Ready[Review source and limits]
+  Mic --> Ready
+  Link --> Ready
+  Ready --> Configure[Engine / fallback / language / speakers]
+  Configure --> Submit[Submit]
+  Submit --> Outcome{Result}
+  Outcome -->|Success| Review[Review and edit text]
+  Outcome -->|Failure| Explain[Explain code and attempts]
+  Explain --> Configure
+  Review --> TXT[Copy or TXT from edited text]
+  Review --> SRT[SRT from timed segments]

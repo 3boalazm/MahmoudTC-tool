@@ -1,0 +1,27 @@
+flowchart LR
+  subgraph Client[Browser]
+    Shell[Layout preferences and navigation]
+    Studio[Studio and source hooks]
+    Output[Transcript and exports]
+    SW[Service worker shell cache]
+  end
+  subgraph Server[Next Node routes]
+    Health[Health and credentials]
+    Transcribe[Transcribe orchestrator]
+    Config[Config and effective credentials]
+    Guard[URL guard and media fetch]
+    Counters[Usage Maps and rate buckets]
+    Adapters[Four provider adapters]
+  end
+  Studio --> Health
+  Studio --> Transcribe
+  Studio --> Output
+  Health --> Config
+  Transcribe --> Config
+  Transcribe --> Guard
+  Transcribe --> Counters
+  Transcribe --> Adapters
+  Adapters --> Vendors[External speech providers]
+  Studio --> Blob[Optional public Vercel Blob]
+  Transcribe --> Blob
+  SW -.-> Shell

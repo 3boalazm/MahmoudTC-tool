@@ -1,0 +1,16 @@
+{
+  "checkedUTC": "2026-11-03T21:32:32.222620+00:00",
+  "requestedNamedDocuments": 19,
+  "findingEntries": 18,
+  "mermaidSourceFiles": 7,
+  "markdownReferencesChecked": 161,
+  "pinnedSourceRangesChecked": 88,
+  "allJSONParsed": true,
+  "requiredLogsAndActualResultsChecked": true,
+  "defaultCredentialNonReproductionChecked": true,
+  "applicationTrackedDiffEmptyBeforeDocumentationStaging": true,
+  "screenshots": "not captured",
+  "mermaidRendered": "not rendered",
+  "publicCaseStudies": "drafts, not published",
+  "push": "must be independently confirmed by git push and remote SHA"
+}

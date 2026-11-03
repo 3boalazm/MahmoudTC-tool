@@ -1,0 +1,14 @@
+stateDiagram-v2
+  [*] --> SourceReady
+  SourceReady --> StagedBlob: Large file and enabled
+  SourceReady --> Request: Inline or link
+  StagedBlob --> Request: Submit URL
+  StagedBlob --> OrphanRisk: Abandon before submit
+  Request --> ProviderWork: Validation and plan accepted
+  Request --> OrphanRisk: Early return with staged source
+  ProviderWork --> ReleaseAttempt: Normal success or terminal failure
+  ProviderWork --> UnverifiedWork: Client cancel or platform termination
+  ReleaseAttempt --> Released: Deletion succeeds
+  ReleaseAttempt --> OrphanRisk: Disabled or failed cleanup
+  Released --> [*]
+  UnverifiedWork --> OrphanRisk: Independent cleanup not guaranteed

@@ -1,0 +1,49 @@
+{
+  "edition": "new repository reconstruction; not historical ZIP recovery",
+  "collectedDate": "2026-11-03",
+  "metadataWrittenUTC": "2026-11-03T21:31:42.051261+00:00",
+  "baseline": "456bccaec494c93491f0115b213dcc005098f912",
+  "branch": "arena/e896daf3-mahmoudtc-tool",
+  "node": "v22.22.3",
+  "npm": "10.9.8",
+  "productionRevision": "unknown",
+  "results": {
+    "installExit": 0,
+    "unitExit": 1,
+    "tests": 127,
+    "passed": 121,
+    "failed": 6,
+    "lintExit": 1,
+    "lintErrors": 1,
+    "lintWarnings": 1,
+    "buildExit": 1,
+    "buildBlocker": "Google font downloads",
+    "auditExit": 1,
+    "auditCounts": {
+      "info": 0,
+      "low": 0,
+      "moderate": 16,
+      "high": 5,
+      "critical": 1,
+      "total": 22
+    },
+    "dependencyTreeExit": 0
+  },
+  "safety": {
+    "builtinsDisabledForAppChecks": true,
+    "installScriptsDisabled": true,
+    "buildTelemetryDisabled": true,
+    "productionMutations": false,
+    "paidCalls": false
+  },
+  "notExecuted": [
+    "screenshots",
+    "browser interactions",
+    "mocked HTTP e2e",
+    "real recognition",
+    "live Blob lifecycle",
+    "advisory exploitation",
+    "Drive upload",
+    "public case-study publication"
+  ]
+}

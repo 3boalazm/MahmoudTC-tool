@@ -1,0 +1,251 @@
+{
+  "baseline": "456bccaec494c93491f0115b213dcc005098f912",
+  "selfExcluded": true,
+  "files": [
+    {
+      "path": "00-Project-Summary/Project-Overview.md",
+      "bytes": 4237,
+      "sha256": "1646c2469814675f0ff172a283c18134ae864f6e2ba6717badcbc91ebce714eb"
+    },
+    {
+      "path": "01-Internal-Documentation/API-Integrations.md",
+      "bytes": 5760,
+      "sha256": "534fb6a06aaeb3aca6568d509b89db82d467cad05394159d3bfdb5db4b24aa3c"
+    },
+    {
+      "path": "01-Internal-Documentation/Design-System.md",
+      "bytes": 5433,
+      "sha256": "a37b6f7b2528fbb5ab9ac36974e4dd76c223560c592ae1d24f342916204fa4c5"
+    },
+    {
+      "path": "01-Internal-Documentation/Implementation-Analysis.md",
+      "bytes": 4788,
+      "sha256": "79c55cd4e310546544a58ff53f7e03f21ce6f693b2e42675b7fc1a00ff2c7313"
+    },
+    {
+      "path": "01-Internal-Documentation/Information-Architecture.md",
+      "bytes": 3739,
+      "sha256": "7e491d806e9ead6d4f3738557a98ed5195f62fe6447ba1789cbe15531bc24f2a"
+    },
+    {
+      "path": "01-Internal-Documentation/Product-Discovery.md",
+      "bytes": 4186,
+      "sha256": "8850cb4209fd4e41f80d01d6a91f360d17b9f958b2091fb37265053be5602d42"
+    },
+    {
+      "path": "01-Internal-Documentation/Product-Requirements.md",
+      "bytes": 4533,
+      "sha256": "48b930dec095f56814b09b1d54232695423eb62470c05876be6694192cc78e6d"
+    },
+    {
+      "path": "01-Internal-Documentation/Technical-Architecture.md",
+      "bytes": 4689,
+      "sha256": "00c4964c41615ab47d1de8efae4978338b41835aec5d11aa6a723210d70b228c"
+    },
+    {
+      "path": "01-Internal-Documentation/UX-Interaction-Analysis.md",
+      "bytes": 4162,
+      "sha256": "b8917d145de36310d12b82077ae7378bfed7159fb3dae2a4dd652719f8101f54"
+    },
+    {
+      "path": "01-Internal-Documentation/User-Flows.md",
+      "bytes": 4246,
+      "sha256": "f2a6e2f845530b7c8d2e44d2c4df61327bf453218c25e85de64821cf639c32d1"
+    },
+    {
+      "path": "02-Quality-and-Audit/Build-and-Test-Results.md",
+      "bytes": 3908,
+      "sha256": "1346dee39a70a5b5f54c542f9acb37dcb0100b71cf856c788420bb8b7ffe4404"
+    },
+    {
+      "path": "02-Quality-and-Audit/Code-Quality-Report.md",
+      "bytes": 17177,
+      "sha256": "4a93999f8e13a2cbfb78ea8d6663f9264978aa2b027609a31f050a7ee4c4242a"
+    },
+    {
+      "path": "02-Quality-and-Audit/Dependency-Security-Report.md",
+      "bytes": 8510,
+      "sha256": "a7af8cac4ed5d5769adebcf194e218db13725637901169dde7949ef2751ed338"
+    },
+    {
+      "path": "02-Quality-and-Audit/Known-Issues-and-Limitations.md",
+      "bytes": 3189,
+      "sha256": "2205dce716b3cf4d7ede20df04b9799aedbe290eadd1159c7071cbec4d899424"
+    },
+    {
+      "path": "02-Quality-and-Audit/UX-Audit.md",
+      "bytes": 4237,
+      "sha256": "e926a7e80add838d5c73bfcbdc273334c5e7fafeb92ede7b66b0b15e2dc82542"
+    },
+    {
+      "path": "03-Portfolio-Case-Study/Author-Verification.md",
+      "bytes": 1702,
+      "sha256": "f3cf33f47fe9290d8450acb251c16dfe3017f58abf069de1660f886908235b45"
+    },
+    {
+      "path": "03-Portfolio-Case-Study/Portfolio-Case-Study.md",
+      "bytes": 4578,
+      "sha256": "05bde14d0592bc780baf695165ad96edfbe603219f1f38e5cad86d5f2ae66e97"
+    },
+    {
+      "path": "04-Behance-Case-Study/Behance-Case-Study.md",
+      "bytes": 5774,
+      "sha256": "7af5859f68ee778ccfcb286445bcf04a46f567acd519d320a94f6f3ba79f5d85"
+    },
+    {
+      "path": "05-Evidence/Delivery-Validation.md",
+      "bytes": 2627,
+      "sha256": "f23e3db3dd9952723db23aa86e89662e4112f321a2e115ab54c430d0e5beb591"
+    },
+    {
+      "path": "05-Evidence/Diagrams/01-Navigation.mmd",
+      "bytes": 341,
+      "sha256": "97a4b0bd85661123f157190aed9cee59c042ad14efc2cdf2ad791cf447b975c9"
+    },
+    {
+      "path": "05-Evidence/Diagrams/02-Primary-Journey.mmd",
+      "bytes": 609,
+      "sha256": "9300ec5efe220291be8c73bde00ff9d26f848dac83c78797bb74ded7cea6916e"
+    },
+    {
+      "path": "05-Evidence/Diagrams/03-Audio-Processing.mmd",
+      "bytes": 744,
+      "sha256": "6884976358ca1399cfb461547768a0863bb8f79302c1f9c1c4dfa1416b7cd0e2"
+    },
+    {
+      "path": "05-Evidence/Diagrams/04-System-Interaction.mmd",
+      "bytes": 731,
+      "sha256": "1efd216df307534b31676c1a79457307a386fe80207fc7c71e3a989fc9f24c6a"
+    },
+    {
+      "path": "05-Evidence/Diagrams/05-Architecture.mmd",
+      "bytes": 793,
+      "sha256": "38f5d3d68a418cc7bd3bb59c5b8cf209e449a13ee415636ff328b45cec27f2fd"
+    },
+    {
+      "path": "05-Evidence/Diagrams/06-Data-Flow.mmd",
+      "bytes": 781,
+      "sha256": "5cede27c501e1d034c1fbaae7e7d11079b11001ea794bd41a08635a358a2d7e9"
+    },
+    {
+      "path": "05-Evidence/Diagrams/07-Resource-Lifecycle.mmd",
+      "bytes": 675,
+      "sha256": "b6186e874689b36481b7f23d53d3dd79f044b6562d099ceda5a647964d82a1b0"
+    },
+    {
+      "path": "05-Evidence/Diagrams/README.md",
+      "bytes": 1005,
+      "sha256": "2780b7861851a0a3b2f2e926798ddc73c3d0cc174d9874ee4e51aec3698d72a7"
+    },
+    {
+      "path": "05-Evidence/Evidence-Index.md",
+      "bytes": 3456,
+      "sha256": "db723408170ab808cdc74821ab52637c5b2742266572dcb46e5c23de87545b68"
+    },
+    {
+      "path": "05-Evidence/Production-Excerpt-Ledger.json",
+      "bytes": 3896,
+      "sha256": "f9f7d5ebb0116cb546cd579ad2c604525131baf8668a8df5071f11ce6943f3bc"
+    },
+    {
+      "path": "05-Evidence/Production-Observations.md",
+      "bytes": 3809,
+      "sha256": "4b387ecd1f462385008752eb2c3ef30e979d32399a79b89284566093b8edb4d2"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/README.md",
+      "bytes": 1479,
+      "sha256": "d902342cbaad0ad6588140fd13b5fd71d9902ebb9d8154272158e6a44e8f7e73"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/build.exit-code",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/build.log",
+      "bytes": 2174,
+      "sha256": "991e24518eb270e485ac2f652e63862c2c3ebce73543f3893c6ac549c6a29fab"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/dependency-audit.exit-code",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/dependency-audit.json",
+      "bytes": 16427,
+      "sha256": "71168440c2810422e4ca76a4f82cc43cf376443f400afa59dfdc7306954e20fb"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/dependency-audit.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/dependency-tree.exit-code",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/dependency-tree.log",
+      "bytes": 914,
+      "sha256": "b92e8e23d4fa5b64fb8652a7e415c14ade62d9b2e5808f6d2157c116f08a4a73"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/install.exit-code",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/install.log",
+      "bytes": 372,
+      "sha256": "b66188dac9fb469a92104c81fc6f7d2ff0a4831acf110fc5579e82c90dc9daef"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/lint.exit-code",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/lint.log",
+      "bytes": 1146,
+      "sha256": "60c0444e7f84b06cef24ebf1110b1d5ec0a71ff0a5373a7d0edae10e6de8cd51"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/unit-tests.exit-code",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "05-Evidence/Raw-Logs/unit-tests.log",
+      "bytes": 41192,
+      "sha256": "f277d569d15c4e065093db4d5e53f77cabf49bd72e9bb87c2c176af4a62a730a"
+    },
+    {
+      "path": "05-Evidence/Run-Metadata.json",
+      "bytes": 1200,
+      "sha256": "858377990256a9c946b42efa6c4302f9b27aea80cfe7b802b76ddd786b674b28"
+    },
+    {
+      "path": "05-Evidence/Screenshots/Capture-Plan.md",
+      "bytes": 3014,
+      "sha256": "8a20c9a5bed4f96508d55ed60923262f5ae44f823c6a6ab3400aadfc13d17103"
+    },
+    {
+      "path": "05-Evidence/Source-Inventory.md",
+      "bytes": 4141,
+      "sha256": "e44e59403c5d69b963579d9fc7b67aeb358be5b9115476524f11b0c3b45e7ac0"
+    },
+    {
+      "path": "05-Evidence/Validation-Results.json",
+      "bytes": 588,
+      "sha256": "3474ab237b6f1811161b43c35dccde680131e448aab985fd521c1f5d90790632"
+    },
+    {
+      "path": "README.md",
+      "bytes": 5080,
+      "sha256": "ec90cab3f1555d943411f79849c3a670994440027fa6ed7a67c6816f09876e18"
+    }
+  ]
+}

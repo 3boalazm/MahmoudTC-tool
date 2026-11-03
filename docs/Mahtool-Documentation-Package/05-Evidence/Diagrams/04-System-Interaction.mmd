@@ -1,0 +1,19 @@
+sequenceDiagram
+  actor User
+  participant Browser
+  participant API as Next API
+  participant Provider as Provider adapter
+  User->>Browser: Load source and submit
+  Browser->>API: GET health with cookie context
+  API-->>Browser: Availability, order and limits
+  Browser->>API: POST transcribe source and options
+  API->>API: Validate, rate guard, resolve keys, plan
+  API->>Provider: Recognition request
+  alt Retryable failure and next eligible engine
+    Provider-->>API: Normalized failure
+    API->>Provider: Try next adapter
+  end
+  Provider-->>API: Result or terminal failure
+  API->>API: Count attempt and best-effort release
+  API-->>Browser: Normalized response and attempts
+  Browser-->>User: Edit / export or recovery

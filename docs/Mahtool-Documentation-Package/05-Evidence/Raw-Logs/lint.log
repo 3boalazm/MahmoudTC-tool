@@ -1,0 +1,23 @@
+
+> mahmoudtc-stt-studio@1.0.0 lint
+> eslint .
+
+
+/home/user/MahmoudTC-tool/components/TranscriptPanel.js
+  92:243  warning  React Hook useMemo has a missing dependency: 'speakers'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/user/MahmoudTC-tool/components/TranscriptionStudio.js
+  681:22  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  679 |               key: 'transcription',
+  680 |               label: t('studio.timing.transcription'),
+> 681 |               value: timingRef.current.transcriptionStartedAt ? formatElapsed(elapsedMs) : '—',
+      |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  682 |               accent: 'text-mint-400',
+  683 |             },
+  684 |             {  react-hooks/refs
+
+✖ 2 problems (1 error, 1 warning)
+

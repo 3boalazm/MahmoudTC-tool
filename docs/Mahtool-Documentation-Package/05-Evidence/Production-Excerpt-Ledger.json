@@ -1,0 +1,84 @@
+{
+  "date": "2026-11-03",
+  "method": "fetch_page; chunk 0; all eight successful, hasMore false",
+  "deploymentRevision": "unknown",
+  "retention": "selective text excerpts and analyst notes; not screenshots/full raw snapshots",
+  "routes": [
+    {
+      "url": "https://mahtool.vercel.app/",
+      "title": "Audio to text, with real failover",
+      "excerpts": [
+        "4 speech engines · automatic failover",
+        "Keys never reach the browser",
+        "Files stored0Files stored"
+      ],
+      "observationAndLimit": "Marketing teaches Deepgram-first and absolute key/storage claims. No numeric language/accuracy claim is adopted as a measured outcome."
+    },
+    {
+      "url": "https://mahtool.vercel.app/studio",
+      "title": "Transcriber · Speech to Text Studio",
+      "excerpts": [
+        "Up to 25 MB through the app · 25 MB via storage",
+        "Load a file or record something, then press {action}.",
+        "failover chain: assemblyai → deepgram → gladia → speechmatics"
+      ],
+      "observationAndLimit": "File/microphone/link, language including Arabic (Egypt), speaker modes and 50 MB direct-link guidance appear in text. Flattened panels are not proof of simultaneous visibility."
+    },
+    {
+      "url": "https://mahtool.vercel.app/settings",
+      "title": "Settings · Speech to Text Studio",
+      "excerpts": [
+        "4 of 4 engines connected",
+        "Save & testTest connectionDisable here"
+      ],
+      "observationAndLimit": "Masked deployment labels and controls were read, not clicked. Presence is not key validity; source defaults can be classified with deployment keys."
+    },
+    {
+      "url": "https://mahtool.vercel.app/engines",
+      "title": "Engines · Speech to Text Studio",
+      "excerpts": [
+        "The order is one environment variable: ENGINE_ORDER.",
+        "unknown ids are appended"
+      ],
+      "observationAndLimit": "Static order is Deepgram/Gladia/AssemblyAI/Speechmatics; source filters unknown IDs and appends missing known IDs, not unknown ones."
+    },
+    {
+      "url": "https://mahtool.vercel.app/usage",
+      "title": "Usage & remaining limits · Speech to Text Studio",
+      "excerpts": [
+        "No API for usage",
+        "Provider figuresare read from each vendor’s own API and cached for 5.",
+        "This panel exposes account-level consumption."
+      ],
+      "observationAndLimit": "Current extraction shows generic cards plus capability explanation and local per-instance counters. No account amounts were retained. This is not proof of a populated current provider report."
+    },
+    {
+      "url": "https://mahtool.vercel.app/faq",
+      "title": "FAQ · Speech to Text Studio",
+      "excerpts": [
+        "Deepgram Nova-2 handles 30+ languages natively",
+        "Up to 25 MB streams straight through the API route.",
+        "Bring your own API keys — nothing is logged or stored."
+      ],
+      "observationAndLimit": "Nova-2/language/storage and timeout claims require reconciliation with actual configuration/adapters. Excerpts are claims observed, not endorsements."
+    },
+    {
+      "url": "https://mahtool.vercel.app/maker",
+      "title": "The Maker — Mustafa Aboalazm · Speech to Text Studio",
+      "excerpts": [
+        "THE PERSON BEHIND THE PRODUCT",
+        "Speech to Text Studio"
+      ],
+      "observationAndLimit": "Maker identity differs from studio owner naming; contribution roles unverified. Personal contact links/profile figures/client project details intentionally not retained."
+    },
+    {
+      "url": "https://mahtool.vercel.app/offline",
+      "title": "Speech to Text Studio",
+      "excerpts": [
+        "You are offline",
+        "The app shell still loads, but transcription needs a connection"
+      ],
+      "observationAndLimit": "Fetched online. This does not establish offline navigation or installation behavior."
+    }
+  ]
+}

@@ -1,0 +1,1043 @@
+
+> mahmoudtc-stt-studio@1.0.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# (node:1434) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/user/MahmoudTC-tool/lib/server/credentials.js is not specified and it doesn't parse as CommonJS.
+# Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+# To eliminate this warning, add "type": "module" to /home/user/MahmoudTC-tool/package.json.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: a credential cookie round-trips through storage
+ok 1 - a credential cookie round-trips through storage
+  ---
+  duration_ms: 1.839529
+  type: 'test'
+  ...
+# Subtest: an empty map clears the cookie
+ok 2 - an empty map clears the cookie
+  ---
+  duration_ms: 0.272461
+  type: 'test'
+  ...
+# Subtest: garbage in the cookie degrades to "nothing stored"
+ok 3 - garbage in the cookie degrades to "nothing stored"
+  ---
+  duration_ms: 0.267631
+  type: 'test'
+  ...
+# Subtest: keys that could never work are dropped at the door
+ok 4 - keys that could never work are dropped at the door
+  ---
+  duration_ms: 0.140164
+  type: 'test'
+  ...
+# Subtest: one engine can be disabled without disturbing the others
+ok 5 - one engine can be disabled without disturbing the others
+  ---
+  duration_ms: 0.234895
+  type: 'test'
+  ...
+# Subtest: the cookie is httpOnly, same-site and long-lived
+ok 6 - the cookie is httpOnly, same-site and long-lived
+  ---
+  duration_ms: 0.224588
+  type: 'test'
+  ...
+# Subtest: key validation names the actual mistake
+ok 7 - key validation names the actual mistake
+  ---
+  duration_ms: 11.400912
+  type: 'test'
+  ...
+# Subtest: a mask shows enough to recognise a key and nothing more
+ok 8 - a mask shows enough to recognise a key and nothing more
+  ---
+  duration_ms: 0.175034
+  type: 'test'
+  ...
+# Subtest: fingerprints are stable, distinct, and do not contain the key
+ok 9 - fingerprints are stable, distinct, and do not contain the key
+  ---
+  duration_ms: 0.718775
+  type: 'test'
+  ...
+# Subtest: a stored key outranks the environment, a disabled engine outranks both
+ok 10 - a stored key outranks the environment, a disabled engine outranks both
+  ---
+  duration_ms: 0.428488
+  type: 'test'
+  ...
+# Subtest: the credential state describes every combination honestly
+ok 11 - the credential state describes every combination honestly
+  ---
+  duration_ms: 0.327052
+  type: 'test'
+  ...
+# Subtest: the report summarises the engines without exposing a single character of an env key
+ok 12 - the report summarises the engines without exposing a single character of an env key
+  ---
+  duration_ms: 0.198906
+  type: 'test'
+  ...
+# Subtest: the panel state is complete, ordered and secret-free
+ok 13 - the panel state is complete, ordered and secret-free
+  ---
+  duration_ms: 8.207107
+  type: 'test'
+  ...
+# Subtest: availability, failover order and provider config all follow the cookie
+ok 14 - availability, failover order and provider config all follow the cookie
+  ---
+  duration_ms: 0.430013
+  type: 'test'
+  ...
+# Subtest: an environment key is still the fallback for every engine
+ok 15 - an environment key is still the fallback for every engine
+  ---
+  duration_ms: 5.033492
+  type: 'test'
+  ...
+# Subtest: every engine has a built-in default key that is shaped like a real one
+not ok 16 - every engine has a built-in default key that is shaped like a real one
+  ---
+  duration_ms: 0.876117
+  type: 'test'
+  location: '/home/user/MahmoudTC-tool/tests/credentials.test.mjs:267:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/user/MahmoudTC-tool/tests/credentials.test.mjs:268:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: a built-in default is masked like any deployment key, never echoed
+not ok 17 - a built-in default is masked like any deployment key, never echoed
+  ---
+  duration_ms: 0.389773
+  type: 'test'
+  location: '/home/user/MahmoudTC-tool/tests/credentials.test.mjs:278:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    a default is a deployment key to the visitor
+    + actual - expected
+    
+    + 'none'
+    - 'environment'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'environment'
+  actual: 'none'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/user/MahmoudTC-tool/tests/credentials.test.mjs:281:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: a key from /settings still outranks the built-in default
+not ok 18 - a key from /settings still outranks the built-in default
+  ---
+  duration_ms: 0.187226
+  type: 'test'
+  location: '/home/user/MahmoudTC-tool/tests/credentials.test.mjs:292:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    null !== ''
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: ''
+  actual: ~
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/user/MahmoudTC-tool/tests/credentials.test.mjs:297:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: the built-in defaults reach the config layer, so all four engines can run
+not ok 19 - the built-in defaults reach the config layer, so all four engines can run
+  ---
+  duration_ms: 0.214262
+  type: 'test'
+  location: '/home/user/MahmoudTC-tool/tests/credentials.test.mjs:301:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    deepgram falls back to its default
+    
+    null !== ''
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: ''
+  actual: ~
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/user/MahmoudTC-tool/tests/credentials.test.mjs:306:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: DISABLE_BUILTIN_KEYS=1 switches the shared defaults off
+ok 20 - DISABLE_BUILTIN_KEYS=1 switches the shared defaults off
+  ---
+  duration_ms: 1.03902
+  type: 'test'
+  ...
+# (node:1443) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/user/MahmoudTC-tool/lib/engines.js is not specified and it doesn't parse as CommonJS.
+# Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+# To eliminate this warning, add "type": "module" to /home/user/MahmoudTC-tool/package.json.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: Deepgram requests the current speaker diarization model by default
+ok 21 - Deepgram requests the current speaker diarization model by default
+  ---
+  duration_ms: 1.168901
+  type: 'test'
+  ...
+# Subtest: Deepgram can disable diarization for a single-speaker recording
+ok 22 - Deepgram can disable diarization for a single-speaker recording
+  ---
+  duration_ms: 0.259989
+  type: 'test'
+  ...
+# Subtest: Deepgram preserves locale casing for Egyptian Arabic
+ok 23 - Deepgram preserves locale casing for Egyptian Arabic
+  ---
+  duration_ms: 0.256414
+  type: 'test'
+  ...
+# Subtest: Deepgram parser groups consecutive words by speaker
+ok 24 - Deepgram parser groups consecutive words by speaker
+  ---
+  duration_ms: 1.348513
+  type: 'test'
+  ...
+# Subtest: AssemblyAI utterances retain speaker IDs
+ok 25 - AssemblyAI utterances retain speaker IDs
+  ---
+  duration_ms: 0.411065
+  type: 'test'
+  ...
+# Subtest: Gladia utterances retain speaker IDs
+ok 26 - Gladia utterances retain speaker IDs
+  ---
+  duration_ms: 5.762757
+  type: 'test'
+  ...
+# Subtest: Speechmatics parser splits segments when the speaker changes
+ok 27 - Speechmatics parser splits segments when the speaker changes
+  ---
+  duration_ms: 0.597282
+  type: 'test'
+  ...
+# (node:1450) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/user/MahmoudTC-tool/lib/i18n/config.js is not specified and it doesn't parse as CommonJS.
+# Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+# To eliminate this warning, add "type": "module" to /home/user/MahmoudTC-tool/package.json.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: English and Arabic dictionaries expose identical keys
+ok 28 - English and Arabic dictionaries expose identical keys
+  ---
+  duration_ms: 5.677415
+  type: 'test'
+  ...
+# Subtest: every string leaf is non-empty in both languages
+ok 29 - every string leaf is non-empty in both languages
+  ---
+  duration_ms: 0.642546
+  type: 'test'
+  ...
+# Subtest: array sections keep the same length in both languages
+ok 30 - array sections keep the same length in both languages
+  ---
+  duration_ms: 0.183169
+  type: 'test'
+  ...
+# Subtest: every t() key used in the codebase exists in both dictionaries
+ok 31 - every t() key used in the codebase exists in both dictionaries
+  ---
+  duration_ms: 20.743425
+  type: 'test'
+  ...
+# Subtest: interpolation placeholders match between languages
+ok 32 - interpolation placeholders match between languages
+  ---
+  duration_ms: 1.626754
+  type: 'test'
+  ...
+# Subtest: the translator resolves dot paths and interpolates
+ok 33 - the translator resolves dot paths and interpolates
+  ---
+  duration_ms: 1.297858
+  type: 'test'
+  ...
+# Subtest: an unsupported locale falls back to the default dictionary
+ok 34 - an unsupported locale falls back to the default dictionary
+  ---
+  duration_ms: 0.527927
+  type: 'test'
+  ...
+# Subtest: locale helpers coerce and report direction
+ok 35 - locale helpers coerce and report direction
+  ---
+  duration_ms: 0.181193
+  type: 'test'
+  ...
+# Subtest: Accept-Language picks the highest-ranked supported language
+ok 36 - Accept-Language picks the highest-ranked supported language
+  ---
+  duration_ms: 0.528064
+  type: 'test'
+  ...
+# Subtest: an explicit cookie beats the browser preference
+ok 37 - an explicit cookie beats the browser preference
+  ---
+  duration_ms: 0.484034
+  type: 'test'
+  ...
+# Subtest: theme helpers only accept real themes
+ok 38 - theme helpers only accept real themes
+  ---
+  duration_ms: 0.182089
+  type: 'test'
+  ...
+# Subtest: the pre-paint theme script is self-contained and reads the cookie key
+ok 39 - the pre-paint theme script is self-contained and reads the cookie key
+  ---
+  duration_ms: 0.330307
+  type: 'test'
+  ...
+# Subtest: the manifest advertises everything an install needs
+ok 40 - the manifest advertises everything an install needs
+  ---
+  duration_ms: 1.085706
+  type: 'test'
+  ...
+# Subtest: the manifest is localised from the same cookies as the pages
+ok 41 - the manifest is localised from the same cookies as the pages
+  ---
+  duration_ms: 1.565393
+  type: 'test'
+  ...
+# Subtest: every declared icon exists, is a real PNG, and matches its declared size
+ok 42 - every declared icon exists, is a real PNG, and matches its declared size
+  ---
+  duration_ms: 0.888529
+  type: 'test'
+  ...
+# Subtest: the service worker is versioned and cleans up old caches
+ok 43 - the service worker is versioned and cleans up old caches
+  ---
+  duration_ms: 0.450835
+  type: 'test'
+  ...
+# Subtest: the service worker precaches the shell, including /offline
+ok 44 - the service worker precaches the shell, including /offline
+  ---
+  duration_ms: 0.624437
+  type: 'test'
+  ...
+# Subtest: transcription requests are never served from the cache
+ok 45 - transcription requests are never served from the cache
+  ---
+  duration_ms: 0.466129
+  type: 'test'
+  ...
+# Subtest: navigations are network-first with /offline as the last resort
+ok 46 - navigations are network-first with /offline as the last resort
+  ---
+  duration_ms: 0.176292
+  type: 'test'
+  ...
+# Subtest: the worker is only registered in production
+ok 47 - the worker is only registered in production
+  ---
+  duration_ms: 0.175092
+  type: 'test'
+  ...
+# (node:1468) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/user/MahmoudTC-tool/lib/remote-media.js is not specified and it doesn't parse as CommonJS.
+# Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+# To eliminate this warning, add "type": "module" to /home/user/MahmoudTC-tool/package.json.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: isBlockedAddress refuses every private, loopback and metadata range
+ok 48 - isBlockedAddress refuses every private, loopback and metadata range
+  ---
+  duration_ms: 2.058166
+  type: 'test'
+  ...
+# Subtest: isBlockedAddress lets public addresses through
+ok 49 - isBlockedAddress lets public addresses through
+  ---
+  duration_ms: 0.283227
+  type: 'test'
+  ...
+# Subtest: isBlockedAddress fails closed on anything that is not an IP
+ok 50 - isBlockedAddress fails closed on anything that is not an IP
+  ---
+  duration_ms: 0.135096
+  type: 'test'
+  ...
+# Subtest: parseMediaLink accepts a plain public file link
+ok 51 - parseMediaLink accepts a plain public file link
+  ---
+  duration_ms: 0.419432
+  type: 'test'
+  ...
+# Subtest: parseMediaLink rejects hostile and malformed links with a reason
+ok 52 - parseMediaLink rejects hostile and malformed links with a reason
+  ---
+  duration_ms: 0.602621
+  type: 'test'
+  ...
+# Subtest: parseMediaLink rejects an over-long link
+ok 53 - parseMediaLink rejects an over-long link
+  ---
+  duration_ms: 0.170911
+  type: 'test'
+  ...
+# Subtest: classifyMediaResponse trusts media types and the extension on generic ones
+ok 54 - classifyMediaResponse trusts media types and the extension on generic ones
+  ---
+  duration_ms: 0.463319
+  type: 'test'
+  ...
+# Subtest: looksLikeText spots HTML and JSON hiding behind a media header
+ok 55 - looksLikeText spots HTML and JSON hiding behind a media header
+  ---
+  duration_ms: 0.196421
+  type: 'test'
+  ...
+# Subtest: filenameForLink prefers Content-Disposition and sanitises the result
+ok 56 - filenameForLink prefers Content-Disposition and sanitises the result
+  ---
+  duration_ms: 1.44531
+  type: 'test'
+  ...
+# Subtest: fetchRemoteMedia downloads a file and reports its type and name
+ok 57 - fetchRemoteMedia downloads a file and reports its type and name
+  ---
+  duration_ms: 49.680556
+  type: 'test'
+  ...
+# Subtest: fetchRemoteMedia follows redirects
+ok 58 - fetchRemoteMedia follows redirects
+  ---
+  duration_ms: 6.298054
+  type: 'test'
+  ...
+# Subtest: fetchRemoteMedia stops a redirect loop
+ok 59 - fetchRemoteMedia stops a redirect loop
+  ---
+  duration_ms: 7.811391
+  type: 'test'
+  ...
+# Subtest: fetchRemoteMedia refuses a redirect into a private address
+ok 60 - fetchRemoteMedia refuses a redirect into a private address
+  ---
+  duration_ms: 0.331652
+  type: 'test'
+  ...
+# Subtest: fetchRemoteMedia re-validates the target of every redirect
+ok 61 - fetchRemoteMedia re-validates the target of every redirect
+  ---
+  duration_ms: 5.118108
+  type: 'test'
+  ...
+# Subtest: fetchRemoteMedia enforces the size limit by header and while streaming
+ok 62 - fetchRemoteMedia enforces the size limit by header and while streaming
+  ---
+  duration_ms: 8.231921
+  type: 'test'
+  ...
+# Subtest: fetchRemoteMedia rejects pages, errors and empty files with clear codes
+ok 63 - fetchRemoteMedia rejects pages, errors and empty files with clear codes
+  ---
+  duration_ms: 18.636604
+  type: 'test'
+  ...
+# Subtest: fetchRemoteMedia gives up when the server stalls
+ok 64 - fetchRemoteMedia gives up when the server stalls
+  ---
+  duration_ms: 311.718688
+  type: 'test'
+  ...
+# Subtest: fetchRemoteMedia reports an unreachable host
+ok 65 - fetchRemoteMedia reports an unreachable host
+  ---
+  duration_ms: 1.239073
+  type: 'test'
+  ...
+# (node:1478) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/user/MahmoudTC-tool/lib/i18n/config.js is not specified and it doesn't parse as CommonJS.
+# Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+# To eliminate this warning, add "type": "module" to /home/user/MahmoudTC-tool/package.json.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: the dark palette is declared as Tailwind theme tokens
+ok 66 - the dark palette is declared as Tailwind theme tokens
+  ---
+  duration_ms: 0.913951
+  type: 'test'
+  ...
+# Subtest: every colour token is re-declared for the light theme
+ok 67 - every colour token is re-declared for the light theme
+  ---
+  duration_ms: 0.699365
+  type: 'test'
+  ...
+# Subtest: the light palette is genuinely light and the dark palette genuinely dark
+ok 68 - the light palette is genuinely light and the dark palette genuinely dark
+  ---
+  duration_ms: 0.441771
+  type: 'test'
+  ...
+# Subtest: no component hard-codes a palette colour
+not ok 69 - no component hard-codes a palette colour
+  ---
+  duration_ms: 16.449786
+  type: 'test'
+  location: '/home/user/MahmoudTC-tool/tests/theme.test.mjs:77:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    components must use theme tokens, found:
+    app/maker/MakerContent.js: absolute -top-40 start-[8%] size-[460px] rounded-full bg-[#F
+    app/maker/MakerContent.js: absolute top-24 end-[4%] size-[360px] rounded-full bg-[#51E9
+    app/maker/MakerContent.js: inline-flex items-center gap-2 rounded-full border border-[#
+    app/maker/MakerContent.js: size-1.5 rounded-full bg-[#FF6B47] shadow-[0_0_12px_#FF6B477
+    app/maker/MakerContent.js: bg-gradient-to-r from-[#FF8A6D] via-[#FF6B47] to-[#FFA98F] b
+    app/maker/MakerContent.js: maker-primary-button shine hover-lift press-scale inline-fle
+    app/maker/MakerContent.js: maker-glass hover-lift inline-flex items-center gap-2 rounde
+    app/maker/MakerContent.js: size-4 text-[#FF8A6D]
+    app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]
+    app/maker/MakerContent.js: grid size-12 place-items-center rounded-2xl border border-[#
+    app/maker/MakerContent.js: font-mono text-[10px] text-[#FF8A6D]
+    app/maker/MakerContent.js: size-2 shrink-0 rounded-full bg-[#FF6B47] shadow-[0_0_14px_#
+    app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]
+    app/maker/MakerContent.js: maker-glass group relative flex min-h-[280px] flex-col overf
+    app/maker/MakerContent.js: font-mono text-xs text-[#FF8A6D]
+    app/maker/MakerContent.js: mt-5 grid size-11 place-items-center rounded-2xl border bord
+    app/maker/MakerContent.js: inline-flex items-center gap-2 text-sm font-semibold text-in
+    app/maker/MakerContent.js: inline-flex items-center gap-2 text-sm font-semibold text-in
+    app/maker/MakerContent.js: pointer-events-none absolute -bottom-14 -end-10 size-36 roun
+    app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]
+    app/maker/MakerContent.js: maker-glass group relative flex min-h-[280px] flex-col overf
+    app/maker/MakerContent.js: font-mono text-xs text-[#FF8A6D]
+    app/maker/MakerContent.js: mt-5 grid size-11 place-items-center rounded-2xl border bord
+    app/maker/MakerContent.js: inline-flex items-center gap-2 text-sm font-semibold text-in
+    app/maker/MakerContent.js: inline-flex items-center gap-2 text-sm font-semibold text-in
+    app/maker/MakerContent.js: pointer-events-none absolute -bottom-14 -end-10 size-36 roun
+    app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]
+    app/maker/MakerContent.js: font-mono text-xs text-[#FF8A6D]
+    app/maker/MakerContent.js: absolute -end-20 -top-24 size-72 rounded-full bg-[#FF6B47]/[
+    app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]
+    app/maker/MakerContent.js: maker-primary-button shine inline-flex items-center justify-
+    app/maker/MakerContent.js: maker-glass inline-flex items-center justify-center gap-2 ro
+    app/maker/MakerContent.js: text-xs text-ink-300 transition hover:text-[#FF8A6D]
+    app/maker/MakerContent.js: text-xs text-ink-300 transition hover:text-[#FF8A6D]
+    app/maker/MakerContent.js: text-xs text-ink-300 transition hover:text-[#FF8A6D]
+    + actual - expected
+    
+    + [
+    +   'app/maker/MakerContent.js: absolute -top-40 start-[8%] size-[460px] rounded-full bg-[#F',
+    +   'app/maker/MakerContent.js: absolute top-24 end-[4%] size-[360px] rounded-full bg-[#51E9',
+    +   'app/maker/MakerContent.js: inline-flex items-center gap-2 rounded-full border border-[#',
+    +   'app/maker/MakerContent.js: size-1.5 rounded-full bg-[#FF6B47] shadow-[0_0_12px_#FF6B477',
+    +   'app/maker/MakerContent.js: bg-gradient-to-r from-[#FF8A6D] via-[#FF6B47] to-[#FFA98F] b',
+    +   'app/maker/MakerContent.js: maker-primary-button shine hover-lift press-scale inline-fle',
+    +   'app/maker/MakerContent.js: maker-glass hover-lift inline-flex items-center gap-2 rounde',
+    +   'app/maker/MakerContent.js: size-4 text-[#FF8A6D]',
+    +   'app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]',
+    +   'app/maker/MakerContent.js: grid size-12 place-items-center rounded-2xl border border-[#',
+    +   'app/maker/MakerContent.js: font-mono text-[10px] text-[#FF8A6D]',
+    +   'app/maker/MakerContent.js: size-2 shrink-0 rounded-full bg-[#FF6B47] shadow-[0_0_14px_#',
+    +   'app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]',
+    +   'app/maker/MakerContent.js: maker-glass group relative flex min-h-[280px] flex-col overf',
+    +   'app/maker/MakerContent.js: font-mono text-xs text-[#FF8A6D]',
+    +   'app/maker/MakerContent.js: mt-5 grid size-11 place-items-center rounded-2xl border bord',
+    +   'app/maker/MakerContent.js: inline-flex items-center gap-2 text-sm font-semibold text-in',
+    +   'app/maker/MakerContent.js: inline-flex items-center gap-2 text-sm font-semibold text-in',
+    +   'app/maker/MakerContent.js: pointer-events-none absolute -bottom-14 -end-10 size-36 roun',
+    +   'app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]',
+    +   'app/maker/MakerContent.js: maker-glass group relative flex min-h-[280px] flex-col overf',
+    +   'app/maker/MakerContent.js: font-mono text-xs text-[#FF8A6D]',
+    +   'app/maker/MakerContent.js: mt-5 grid size-11 place-items-center rounded-2xl border bord',
+    +   'app/maker/MakerContent.js: inline-flex items-center gap-2 text-sm font-semibold text-in',
+    +   'app/maker/MakerContent.js: inline-flex items-center gap-2 text-sm font-semibold text-in',
+    +   'app/maker/MakerContent.js: pointer-events-none absolute -bottom-14 -end-10 size-36 roun',
+    +   'app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]',
+    +   'app/maker/MakerContent.js: font-mono text-xs text-[#FF8A6D]',
+    +   'app/maker/MakerContent.js: absolute -end-20 -top-24 size-72 rounded-full bg-[#FF6B47]/[',
+    +   'app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]',
+    +   'app/maker/MakerContent.js: maker-primary-button shine inline-flex items-center justify-',
+    +   'app/maker/MakerContent.js: maker-glass inline-flex items-center justify-center gap-2 ro',
+    +   'app/maker/MakerContent.js: text-xs text-ink-300 transition hover:text-[#FF8A6D]',
+    +   'app/maker/MakerContent.js: text-xs text-ink-300 transition hover:text-[#FF8A6D]',
+    +   'app/maker/MakerContent.js: text-xs text-ink-300 transition hover:text-[#FF8A6D]'
+    + ]
+    - []
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+    0: 'app/maker/MakerContent.js: absolute -top-40 start-[8%] size-[460px] rounded-full bg-[#F'
+    1: 'app/maker/MakerContent.js: absolute top-24 end-[4%] size-[360px] rounded-full bg-[#51E9'
+    2: 'app/maker/MakerContent.js: inline-flex items-center gap-2 rounded-full border border-[#'
+    3: 'app/maker/MakerContent.js: size-1.5 rounded-full bg-[#FF6B47] shadow-[0_0_12px_#FF6B477'
+    4: 'app/maker/MakerContent.js: bg-gradient-to-r from-[#FF8A6D] via-[#FF6B47] to-[#FFA98F] b'
+    5: 'app/maker/MakerContent.js: maker-primary-button shine hover-lift press-scale inline-fle'
+    6: 'app/maker/MakerContent.js: maker-glass hover-lift inline-flex items-center gap-2 rounde'
+    7: 'app/maker/MakerContent.js: size-4 text-[#FF8A6D]'
+    8: 'app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]'
+    9: 'app/maker/MakerContent.js: grid size-12 place-items-center rounded-2xl border border-[#'
+    10: 'app/maker/MakerContent.js: font-mono text-[10px] text-[#FF8A6D]'
+    11: 'app/maker/MakerContent.js: size-2 shrink-0 rounded-full bg-[#FF6B47] shadow-[0_0_14px_#'
+    12: 'app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]'
+    13: 'app/maker/MakerContent.js: maker-glass group relative flex min-h-[280px] flex-col overf'
+    14: 'app/maker/MakerContent.js: font-mono text-xs text-[#FF8A6D]'
+    15: 'app/maker/MakerContent.js: mt-5 grid size-11 place-items-center rounded-2xl border bord'
+    16: 'app/maker/MakerContent.js: inline-flex items-center gap-2 text-sm font-semibold text-in'
+    17: 'app/maker/MakerContent.js: inline-flex items-center gap-2 text-sm font-semibold text-in'
+    18: 'app/maker/MakerContent.js: pointer-events-none absolute -bottom-14 -end-10 size-36 roun'
+    19: 'app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]'
+    20: 'app/maker/MakerContent.js: maker-glass group relative flex min-h-[280px] flex-col overf'
+    21: 'app/maker/MakerContent.js: font-mono text-xs text-[#FF8A6D]'
+    22: 'app/maker/MakerContent.js: mt-5 grid size-11 place-items-center rounded-2xl border bord'
+    23: 'app/maker/MakerContent.js: inline-flex items-center gap-2 text-sm font-semibold text-in'
+    24: 'app/maker/MakerContent.js: inline-flex items-center gap-2 text-sm font-semibold text-in'
+    25: 'app/maker/MakerContent.js: pointer-events-none absolute -bottom-14 -end-10 size-36 roun'
+    26: 'app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]'
+    27: 'app/maker/MakerContent.js: font-mono text-xs text-[#FF8A6D]'
+    28: 'app/maker/MakerContent.js: absolute -end-20 -top-24 size-72 rounded-full bg-[#FF6B47]/['
+    29: 'app/maker/MakerContent.js: font-mono text-[10px] tracking-[0.18em] text-[#FF8A6D]'
+    30: 'app/maker/MakerContent.js: maker-primary-button shine inline-flex items-center justify-'
+    31: 'app/maker/MakerContent.js: maker-glass inline-flex items-center justify-center gap-2 ro'
+    32: 'app/maker/MakerContent.js: text-xs text-ink-300 transition hover:text-[#FF8A6D]'
+    33: 'app/maker/MakerContent.js: text-xs text-ink-300 transition hover:text-[#FF8A6D]'
+    34: 'app/maker/MakerContent.js: text-xs text-ink-300 transition hover:text-[#FF8A6D]'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/user/MahmoudTC-tool/tests/theme.test.mjs:102:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: the theme cookie contract is explicit
+ok 70 - the theme cookie contract is explicit
+  ---
+  duration_ms: 0.271957
+  type: 'test'
+  ...
+# Subtest: the server bakes an explicit preference into the HTML
+ok 71 - the server bakes an explicit preference into the HTML
+  ---
+  duration_ms: 0.328482
+  type: 'test'
+  ...
+# Subtest: the toggle cycles through every theme
+ok 72 - the toggle cycles through every theme
+  ---
+  duration_ms: 0.23735
+  type: 'test'
+  ...
+# Subtest: the pre-paint script writes the attributes the CSS reacts to
+ok 73 - the pre-paint script writes the attributes the CSS reacts to
+  ---
+  duration_ms: 0.174121
+  type: 'test'
+  ...
+# (node:1485) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/user/MahmoudTC-tool/lib/client/format.js is not specified and it doesn't parse as CommonJS.
+# Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+# To eliminate this warning, add "type": "module" to /home/user/MahmoudTC-tool/package.json.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: formats chunks with speaker labels and real timeline ranges
+ok 74 - formats chunks with speaker labels and real timeline ranges
+  ---
+  duration_ms: 9.565083
+  type: 'test'
+  ...
+# Subtest: custom speaker names appear in the transcript and SRT export
+ok 75 - custom speaker names appear in the transcript and SRT export
+  ---
+  duration_ms: 0.584552
+  type: 'test'
+  ...
+# Subtest: speaker labels and timeline can be independently hidden
+ok 76 - speaker labels and timeline can be independently hidden
+  ---
+  duration_ms: 0.165822
+  type: 'test'
+  ...
+# Subtest: fallback text is grouped in pairs of sentences without fabricated timestamps
+not ok 77 - fallback text is grouped in pairs of sentences without fabricated timestamps
+  ---
+  duration_ms: 1.268053
+  type: 'test'
+  location: '/home/user/MahmoudTC-tool/tests/transcript-format.test.mjs:55:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'One.  Two!\n\nThree?'
+    - 'One. Two!\n\nThree?'
+            ^
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: |-
+    One. Two!
+    
+    Three?
+  actual: |-
+    One.  Two!
+    
+    Three?
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/user/MahmoudTC-tool/tests/transcript-format.test.mjs:61:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: does not create speaker labels or timeline for unavailable metadata
+ok 78 - does not create speaker labels or timeline for unavailable metadata
+  ---
+  duration_ms: 0.267872
+  type: 'test'
+  ...
+# Subtest: speaker labels can be disabled in SRT while timing remains intact
+ok 79 - speaker labels can be disabled in SRT while timing remains intact
+  ---
+  duration_ms: 0.239857
+  type: 'test'
+  ...
+# (node:1492) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/user/MahmoudTC-tool/lib/engines.js is not specified and it doesn't parse as CommonJS.
+# Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+# To eliminate this warning, add "type": "module" to /home/user/MahmoudTC-tool/package.json.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: TranscriptionError marks retryable codes and serialises safely
+ok 80 - TranscriptionError marks retryable codes and serialises safely
+  ---
+  duration_ms: 2.157068
+  type: 'test'
+  ...
+# Subtest: bad audio is not retried on the fallback engine
+ok 81 - bad audio is not retried on the fallback engine
+  ---
+  duration_ms: 0.245931
+  type: 'test'
+  ...
+# Subtest: httpStatusFor maps failure codes to client status codes
+ok 82 - httpStatusFor maps failure codes to client status codes
+  ---
+  duration_ms: 0.155236
+  type: 'test'
+  ...
+# Subtest: extractProviderMessage copes with both providers’ error shapes
+ok 83 - extractProviderMessage copes with both providers’ error shapes
+  ---
+  duration_ms: 0.190511
+  type: 'test'
+  ...
+# Subtest: buildDeepgramQuery defaults to Nova-3 and detects language instead of forcing English
+ok 84 - buildDeepgramQuery defaults to Nova-3 and detects language instead of forcing English
+  ---
+  duration_ms: 0.373725
+  type: 'test'
+  ...
+# Subtest: buildDeepgramQuery passes through supported languages
+ok 85 - buildDeepgramQuery passes through supported languages
+  ---
+  duration_ms: 0.23549
+  type: 'test'
+  ...
+# Subtest: buildDeepgramQuery upgrades Nova-2 to Nova-3 for Arabic
+ok 86 - buildDeepgramQuery upgrades Nova-2 to Nova-3 for Arabic
+  ---
+  duration_ms: 0.201911
+  type: 'test'
+  ...
+# Subtest: buildDeepgramQuery uses language detection for Nova-3 auto mode
+ok 87 - buildDeepgramQuery uses language detection for Nova-3 auto mode
+  ---
+  duration_ms: 0.128907
+  type: 'test'
+  ...
+# Subtest: parseDeepgramResponse normalises a channel response
+ok 88 - parseDeepgramResponse normalises a channel response
+  ---
+  duration_ms: 0.82528
+  type: 'test'
+  ...
+# Subtest: parseDeepgramResponse survives an empty response
+ok 89 - parseDeepgramResponse survives an empty response
+  ---
+  duration_ms: 0.39078
+  type: 'test'
+  ...
+# Subtest: estimateAudioSeconds picks a bitrate from the mime type
+ok 90 - estimateAudioSeconds picks a bitrate from the mime type
+  ---
+  duration_ms: 0.305785
+  type: 'test'
+  ...
+# Subtest: parseGladiaResult prefers full_transcript and keeps utterance timings
+ok 91 - parseGladiaResult prefers full_transcript and keeps utterance timings
+  ---
+  duration_ms: 0.248043
+  type: 'test'
+  ...
+# Subtest: parseGladiaResult falls back to joining utterances when there is no full transcript
+ok 92 - parseGladiaResult falls back to joining utterances when there is no full transcript
+  ---
+  duration_ms: 0.122527
+  type: 'test'
+  ...
+# Subtest: buildMultipartBody wraps the audio in a well-formed multipart body
+ok 93 - buildMultipartBody wraps the audio in a well-formed multipart body
+  ---
+  duration_ms: 0.554634
+  type: 'test'
+  ...
+# Subtest: buildMultipartBody strips quotes and newlines from the filename
+ok 94 - buildMultipartBody strips quotes and newlines from the filename
+  ---
+  duration_ms: 0.20918
+  type: 'test'
+  ...
+# Subtest: formatDuration renders mm:ss and h:mm:ss
+ok 95 - formatDuration renders mm:ss and h:mm:ss
+  ---
+  duration_ms: 0.134141
+  type: 'test'
+  ...
+# Subtest: formatBytes uses sane units
+ok 96 - formatBytes uses sane units
+  ---
+  duration_ms: 0.114341
+  type: 'test'
+  ...
+# Subtest: formatElapsed switches from ms to seconds
+ok 97 - formatElapsed switches from ms to seconds
+  ---
+  duration_ms: 0.085982
+  type: 'test'
+  ...
+# Subtest: analyseText counts words, characters and sentences
+ok 98 - analyseText counts words, characters and sentences
+  ---
+  duration_ms: 10.811533
+  type: 'test'
+  ...
+# Subtest: analyseText handles empty input
+ok 99 - analyseText handles empty input
+  ---
+  duration_ms: 0.208175
+  type: 'test'
+  ...
+# Subtest: buildSrt emits valid subtitle blocks and returns null without timings
+ok 100 - buildSrt emits valid subtitle blocks and returns null without timings
+  ---
+  duration_ms: 0.319552
+  type: 'test'
+  ...
+# Subtest: buildPlainText wraps paragraphs at the requested width
+ok 101 - buildPlainText wraps paragraphs at the requested width
+  ---
+  duration_ms: 0.230781
+  type: 'test'
+  ...
+# Subtest: baseName strips the extension and unsafe characters
+ok 102 - baseName strips the extension and unsafe characters
+  ---
+  duration_ms: 0.17797
+  type: 'test'
+  ...
+# Subtest: formatConfidence renders a percentage or null
+ok 103 - formatConfidence renders a percentage or null
+  ---
+  duration_ms: 0.143727
+  type: 'test'
+  ...
+# Subtest: isBlobStorageUrl accepts only this project’s Blob store
+ok 104 - isBlobStorageUrl accepts only this project’s Blob store
+  ---
+  duration_ms: 0.447465
+  type: 'test'
+  ...
+# Subtest: isBlobStorageUrl rejects over-long and whitespace-smuggled URLs
+ok 105 - isBlobStorageUrl rejects over-long and whitespace-smuggled URLs
+  ---
+  duration_ms: 0.104735
+  type: 'test'
+  ...
+# Subtest: sanitiseUrl drops the path and query from a URL
+ok 106 - sanitiseUrl drops the path and query from a URL
+  ---
+  duration_ms: 0.118275
+  type: 'test'
+  ...
+# Subtest: filenameFromUrl recovers a usable filename
+ok 107 - filenameFromUrl recovers a usable filename
+  ---
+  duration_ms: 0.206357
+  type: 'test'
+  ...
+# Subtest: transcribeWithDeepgram sends a JSON url body for remote audio
+ok 108 - transcribeWithDeepgram sends a JSON url body for remote audio
+  ---
+  duration_ms: 76.39091
+  type: 'test'
+  ...
+# Subtest: transcribeWithGladia skips its upload step when given a URL
+ok 109 - transcribeWithGladia skips its upload step when given a URL
+  ---
+  duration_ms: 72.755467
+  type: 'test'
+  ...
+# Subtest: providers reject a source with neither bytes nor a URL
+ok 110 - providers reject a source with neither bytes nor a URL
+  ---
+  duration_ms: 0.663189
+  type: 'test'
+  ...
+# Subtest: the engine registry describes four engines in failover order
+ok 111 - the engine registry describes four engines in failover order
+  ---
+  duration_ms: 0.319908
+  type: 'test'
+  ...
+# Subtest: normaliseEngineId accepts the known engines and defaults everything else
+ok 112 - normaliseEngineId accepts the known engines and defaults everything else
+  ---
+  duration_ms: 0.116309
+  type: 'test'
+  ...
+# Subtest: engine labels and accents resolve for every engine
+ok 113 - engine labels and accents resolve for every engine
+  ---
+  duration_ms: 0.113536
+  type: 'test'
+  ...
+# Subtest: buildMultipartForm mixes text and file fields into one body
+ok 114 - buildMultipartForm mixes text and file fields into one body
+  ---
+  duration_ms: 0.260715
+  type: 'test'
+  ...
+# Subtest: parseAssemblyAITranscript converts milliseconds to seconds
+ok 115 - parseAssemblyAITranscript converts milliseconds to seconds
+  ---
+  duration_ms: 0.353938
+  type: 'test'
+  ...
+# Subtest: parseAssemblyAITranscript falls back to utterances and averages confidence
+ok 116 - parseAssemblyAITranscript falls back to utterances and averages confidence
+  ---
+  duration_ms: 0.166118
+  type: 'test'
+  ...
+# Subtest: transcribeWithGladia uploads the audio as multipart with a boundary content-type
+ok 117 - transcribeWithGladia uploads the audio as multipart with a boundary content-type
+  ---
+  duration_ms: 43.968192
+  type: 'test'
+  ...
+# Subtest: transcribeWithAssemblyAI uploads bytes then polls the transcript
+ok 118 - transcribeWithAssemblyAI uploads bytes then polls the transcript
+  ---
+  duration_ms: 3.26667
+  type: 'test'
+  ...
+# Subtest: transcribeWithAssemblyAI skips the upload when handed a URL
+ok 119 - transcribeWithAssemblyAI skips the upload when handed a URL
+  ---
+  duration_ms: 4.811587
+  type: 'test'
+  ...
+# Subtest: parseSpeechmaticsTranscript rebuilds text from words and punctuation
+ok 120 - parseSpeechmaticsTranscript rebuilds text from words and punctuation
+  ---
+  duration_ms: 0.436839
+  type: 'test'
+  ...
+# Subtest: parseSpeechmaticsTranscript honours a punctuation mark attached to the next word
+ok 121 - parseSpeechmaticsTranscript honours a punctuation mark attached to the next word
+  ---
+  duration_ms: 0.196548
+  type: 'test'
+  ...
+# Subtest: parseSpeechmaticsTranscript respects a language with no word delimiter
+ok 122 - parseSpeechmaticsTranscript respects a language with no word delimiter
+  ---
+  duration_ms: 0.168139
+  type: 'test'
+  ...
+# Subtest: transcribeWithSpeechmatics sends a multipart job and polls it
+ok 123 - transcribeWithSpeechmatics sends a multipart job and polls it
+  ---
+  duration_ms: 5.133909
+  type: 'test'
+  ...
+# Subtest: transcribeWithSpeechmatics sends remote URLs through fetch_data and auto-detects Arabic/English
+ok 124 - transcribeWithSpeechmatics sends remote URLs through fetch_data and auto-detects Arabic/English
+  ---
+  duration_ms: 14.411174
+  type: 'test'
+  ...
+# Subtest: summariseSpeechmaticsUsage totals only transcription rows
+ok 125 - summariseSpeechmaticsUsage totals only transcription rows
+  ---
+  duration_ms: 0.355646
+  type: 'test'
+  ...
+# Subtest: normaliseAudioSource tells bytes and urls apart
+ok 126 - normaliseAudioSource tells bytes and urls apart
+  ---
+  duration_ms: 0.090864
+  type: 'test'
+  ...
+# Subtest: every engine refuses a source with neither bytes nor a URL
+ok 127 - every engine refuses a source with neither bytes nor a URL
+  ---
+  duration_ms: 0.206079
+  type: 'test'
+  ...
+1..127
+# tests 127
+# suites 0
+# pass 121
+# fail 6
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1829.760172
