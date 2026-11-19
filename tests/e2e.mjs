@@ -1205,6 +1205,7 @@ await scenario('health advertises the link feature and its size limit', async ()
   const body = await (await fetch(`${linkDefault.base}/api/health`)).json();
   assert.equal(body.limits.link.enabled, true);
   assert.ok(body.limits.link.maxMb > 0);
+  assert.equal(body.limits.youtube.enabled, true);
 });
 
 await scenario('a link to a private or internal address is refused', async () => {
@@ -1221,7 +1222,13 @@ await scenario('a link to a private or internal address is refused', async () =>
   }
 });
 
-await scenario('a web-page link (YouTube) is refused with a helpful message', async () => {
+await scenario('a web-page link (Instagram) is refused with a helpful message', async () => {
+  const { status, body } = await transcribeLink(linkDefault.base, 'https://www.instagram.com/reel/abc');
+  assert.equal(status, 400);
+  assert.match(body.error.message, /web page/i);
+});
+
+await scenario('a malformed YouTube link is refused with a helpful message', async () => {
   const { status, body } = await transcribeLink(linkDefault.base, 'https://www.youtube.com/watch?v=abc');
   assert.equal(status, 400);
   assert.match(body.error.message, /web page/i);
@@ -1320,6 +1327,25 @@ await scenario('links can be switched off for a deployment', async () => {
 });
 
 await linksOff.close();
+
+await scenario('those test fixtures kept YouTube itself working with no keys at all', async () => {
+  // No STT keys here either: a YouTube link must not depend on one.
+  const youtubeOnly = await startApp({
+    deepgramBase: `${deepgramMock.url}/v1/listen`,
+    gladiaBase: `${gladiaMock.url}/v2`,
+    omitEnv: ['DEEPGRAM_API_KEY', 'GLADIA_API_KEY', 'ASSEMBLYAI_API_KEY', 'SPEECHMATICS_API_KEY'],
+  });
+  try {
+    // A malformed id is refused by the link parser before YouTube is ever
+    // contacted, so this stays hermetic.
+    const bad = await transcribeLink(youtubeOnly.base, 'https://www.youtube.com/watch?v=abc');
+    assert.equal(bad.status, 400);
+    assert.match(bad.body.error.message, /web page/i);
+  } finally {
+    await youtubeOnly.close();
+  }
+});
+
 await mediaHost.close();
 
 /* --------------------------------------------------- rate-limit stage */

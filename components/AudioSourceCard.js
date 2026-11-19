@@ -27,6 +27,7 @@ import { useI18n } from '@/components/providers/I18nProvider.js';
 import { useRecorder } from '@/hooks/useRecorder';
 import { formatBytes, formatDuration } from '@/lib/client/format';
 import { parseMediaLink } from '@/lib/remote-media';
+import { extractYouTubeVideoId } from '@/lib/youtube';
 
 const FILE_ACCEPT =
   'audio/*,video/mp4,.mp3,.m4a,.wav,.webm,.ogg,.oga,.opus,.flac,.aac,.amr,.aiff,.aif,.mp4,.mov';
@@ -130,6 +131,13 @@ export default function AudioSourceCard({
         return;
       }
       setLinkError(null);
+      // YouTube links get a friendly name; the server resolves the real
+      // video title when it fetches the captions.
+      const videoId = extractYouTubeVideoId(parsed.url.toString());
+      if (videoId) {
+        onLoadLink(parsed.url.toString(), { name: `${t('source.youtubeVideo')} · ${videoId}` });
+        return;
+      }
       const lastSegment = parsed.url.pathname.split('/').filter(Boolean).pop() || '';
       let name = parsed.url.hostname;
       try {
@@ -435,7 +443,7 @@ export default function AudioSourceCard({
                   setLinkValue(event.target.value);
                   if (linkError) setLinkError(null);
                 }}
-                placeholder="https://example.com/podcast.mp3"
+                placeholder="https://www.youtube.com/watch?v=… or …/episode.mp3"
                 aria-invalid={Boolean(linkError)}
                 aria-describedby={linkError ? 'media-link-error' : 'media-link-help'}
                 className="min-w-0 flex-1 rounded-2xl border border-ink-500/25 bg-surface-2/70 px-4 py-3 text-sm text-ink-100 placeholder:text-ink-500 focus:border-iris-400/60 disabled:cursor-not-allowed disabled:opacity-60"

@@ -288,7 +288,8 @@ export default function TranscriptionStudio() {
       });
 
       setSpeakerNames({});
-      setResult({ ...payload, sourceName: audio.name });
+      // YouTube results carry the real video title — prefer it for exports.
+      setResult({ ...payload, sourceName: payload.videoTitle || audio.name });
       setText(formatTranscriptSegments(payload.segments, payload.text, {
         showSpeakers,
         showTimeline,

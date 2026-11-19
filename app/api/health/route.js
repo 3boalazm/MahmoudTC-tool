@@ -83,6 +83,10 @@ export function GET(request) {
         enabled: serverConfig.link.enabled,
         maxMb: serverConfig.link.maxMb,
       },
+      /** YouTube video links → caption transcript (no STT keys needed). */
+      youtube: {
+        enabled: serverConfig.youtube.enabled,
+      },
       requestsPerWindow: serverConfig.rateLimit.max,
       windowSeconds: Math.round(serverConfig.rateLimit.windowMs / 1000),
       maxDurationSeconds: serverConfig.runtime.maxDurationSec,

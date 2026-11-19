@@ -175,6 +175,23 @@ export default function TranscriptPanel({
               </div>
             ) : null}
 
+            {result?.sourceType === 'youtube' ? (
+              <div className="mb-4 flex items-start gap-2.5 rounded-2xl border border-iris-400/30 bg-iris-500/10 px-4 py-3 text-xs text-iris-300">
+                <GlobeIcon className="mt-0.5 size-4 shrink-0" />
+                <p className="leading-relaxed">
+                  {t('source.youtubeCaptionsNotice')}
+                  {result.videoTitle ? (
+                    <>
+                      {' '}
+                      <span className="font-medium" dir="auto">
+                        {result.videoTitle}
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+              </div>
+            ) : null}
+
             <StatGrid stats={stats} result={result} />
 
             <div className="mt-4 flex flex-wrap gap-3 rounded-2xl border border-ink-500/20 bg-surface-1/50 p-3">
