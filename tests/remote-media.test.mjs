@@ -54,6 +54,17 @@ test('parseMediaLink accepts a plain public file link', () => {
   assert.equal(result.url.hostname, 'cdn.example.com');
 });
 
+test('parseMediaLink accepts YouTube video links (captions path)', () => {
+  for (const link of [
+    'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    'https://youtu.be/dQw4w9WgXcQ',
+    'https://www.youtube.com/shorts/dQw4w9WgXcQ',
+  ]) {
+    const result = parseMediaLink(link);
+    assert.equal(result.ok, true, link);
+  }
+});
+
 test('parseMediaLink rejects hostile and malformed links with a reason', () => {
   const cases = {
     '': 'EMPTY',
@@ -77,8 +88,9 @@ test('parseMediaLink rejects hostile and malformed links with a reason', () => {
     'http://2130706433/a.mp3': 'PRIVATE_HOST',
     'http://0x7f.0.0.1/a.mp3': 'PRIVATE_HOST',
     'http://0177.0.0.1/a.mp3': 'PRIVATE_HOST',
-    'https://www.youtube.com/watch?v=abc': 'PAGE_LINK',
-    'https://youtu.be/abc': 'PAGE_LINK',
+    // YouTube *pages* (not videos) are still refused; video links pass.
+    'https://www.youtube.com/@somechannel': 'PAGE_LINK',
+    'https://www.youtube.com/playlist?list=PL123': 'PAGE_LINK',
     'https://m.instagram.com/reel/abc': 'PAGE_LINK',
   };
   for (const [link, reason] of Object.entries(cases)) {

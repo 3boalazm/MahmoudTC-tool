@@ -335,6 +335,8 @@ required**. Set one to override the default for that engine.
 | `ALLOW_MEDIA_LINKS` | `true` | Turns the "From a link" input on or off. |
 | `MAX_LINK_MB` | `50` on Vercel, `100` elsewhere | Largest file the server will download from a pasted link. |
 | `LINK_FETCH_TIMEOUT_MS` | `30000` | Download deadline for a link (taken out of the same function budget). |
+| `ALLOW_YOUTUBE_CAPTIONS` | `true` | Turns YouTube link → caption transcript on or off. Needs no STT keys and no audio download. |
+| `YOUTUBE_TIMEOUT_MS` | `15000` | Deadline for the YouTube page + caption fetch, clamped to fit `FUNCTION_BUDGET_MS`. |
 | `FUNCTION_BUDGET_MS` | `55000` on Vercel, `120000` elsewhere | Wall-clock budget for provider work inside one invocation. Provider timeouts are clamped to fit. |
 | `DEEPGRAM_TIMEOUT_MS` | `120000` | Per-request abort timeout. |
 | `GLADIA_TIMEOUT_MS` | `120000` | Per-request abort timeout. |
@@ -633,7 +635,7 @@ carries the reason) · `429` too many probe attempts.
 | --- | --- | --- |
 | `audio` | file | The clip. Required in multipart mode. |
 | `audioUrl` | string | Vercel Blob URL. Required in JSON mode; mutually exclusive with `audio`. |
-| `mediaUrl` | string | A public link to an audio/video file. The server downloads it (max `MAX_LINK_MB`) and transcribes the bytes, so every engine works. Mutually exclusive with `audio`/`audioUrl`. Direct file links only — YouTube-style pages and `.m3u8` playlists are rejected. |
+| `mediaUrl` | string | A public link to an audio/video file. The server downloads it (max `MAX_LINK_MB`) and transcribes the bytes, so every engine works. Mutually exclusive with `audio`/`audioUrl`. Must be a direct file link — `.m3u8` playlists and other site pages (Instagram, TikTok, …) are rejected. **YouTube video links are special-cased** (see below). |
 | `filename` | string | Optional, improves provider hints. |
 | `engine` | `auto` \| `deepgram` \| `gladia` \| `assemblyai` \| `speechmatics` | Default `auto` (the `ENGINE_ORDER` chain). A pinned engine is tried first, then the rest of the chain. |
 | `fallback` | `true` \| `false` | Default `true`. When `false` and an engine is pinned, only that engine runs. |
@@ -643,6 +645,30 @@ carries the reason) · `429` too many probe attempts.
 Status codes: `200` success · `400` bad request · `402` out of credit ·
 `413` too large · `415` unsupported format · `429` rate limited ·
 `502` the whole chain failed · `503` no engine configured · `504` timeout.
+
+#### YouTube links
+
+A YouTube video URL (`watch?v=`, `youtu.be/`, `shorts/`, `embed/`, `live/`) is
+resolved from the video's **caption tracks**, not by downloading audio:
+
+1. fetch the watch page with a browser user agent, read
+   `ytInitialPlayerResponse`, and pull out the title, duration and caption list;
+2. pick the best track — manual captions before auto-generated, the requested
+   `language` first, then `ar`/`en` as fallbacks;
+3. fetch that track as `timedtext` JSON3 and convert it to the same
+   `text`/`segments`/`words` shape the STT engines return.
+
+The response keeps the normal shape with `engine: "youtube"`,
+`model: "captions" | "auto-captions"`, plus `sourceType`, `videoId`,
+`videoTitle`, `captionLanguage` and `captionKind`.
+
+Because no engine is called, **no STT key is required and no credits are
+spent** — the request still counts against the rate limit. Auto-generated
+captions are flagged in `warnings` and in the UI, and are fully editable in the
+studio. A video with captions disabled returns `404` (`NO_CAPTIONS`) asking for
+an audio upload, because captions are the only way to read a YouTube video
+without downloading its media stream. Turn the feature off with
+`ALLOW_YOUTUBE_CAPTIONS=false`.
 
 **Examples**
 

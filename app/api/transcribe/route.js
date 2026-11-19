@@ -31,8 +31,10 @@ import {
 } from '@/lib/engines';
 import { ENGINE_MAP, normaliseEngineId } from '@/lib/engines-meta';
 import { MEDIA_EXTENSIONS, baseContentType } from '@/lib/remote-media';
+import { isYouTubeUrl } from '@/lib/youtube';
 import { deleteBlob, isBlobEnabled, isOwnBlobUrl } from '@/lib/server/blob';
 import { MediaLinkError, fetchRemoteMedia } from '@/lib/server/fetch-media';
+import { YouTubeError, fetchYouTubeTranscript } from '@/lib/server/youtube';
 import {
   engineAvailability,
   hasAnyEngine,
@@ -72,19 +74,6 @@ export async function POST(request) {
   const credentials = parseCredentialCookie(request.cookies.get(KEYS_COOKIE)?.value);
 
   /* ---------------------------------------------------------------------- */
-  /* 0. Fail fast when there is no usable credential at all                 */
-  /* ---------------------------------------------------------------------- */
-  if (!hasAnyEngine(credentials)) {
-    return errorResponse({
-      status: 503,
-      code: ERROR_CODES.MISSING_KEY,
-      message:
-        'No speech-to-text engine is configured. Add a key on the settings page (/settings), or set DEEPGRAM_API_KEY and friends in .env.local.',
-      hint: 'Open /settings to paste a key, or add one to .env.local and restart the server.',
-    });
-  }
-
-  /* ---------------------------------------------------------------------- */
   /* 1. Rate limit                                                          */
   /* ---------------------------------------------------------------------- */
   const limit = checkRateLimit(clientIdentifier(request), serverConfig.rateLimit);
@@ -118,6 +107,32 @@ export async function POST(request) {
   /* ---------------------------------------------------------------------- */
   const parsed = await parseRequest(request);
   if (parsed.error) return parsed.error;
+
+  /* ---------------------------------------------------------------------- */
+  /* 3b. YouTube captions — no STT keys needed, return straight away        */
+  /* ---------------------------------------------------------------------- */
+  if (parsed.youtubeResult) {
+    const speakerMode = normaliseSpeakerMode(parsed.getField('speakerMode'));
+    return jsonResponse(
+      buildYouTubeSuccessBody({
+        result: applySpeakerMode(parsed.youtubeResult, speakerMode),
+        speakerMode,
+      }),
+    );
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* 3c. Fail fast when there is no usable STT credential at all             */
+  /* ---------------------------------------------------------------------- */
+  if (!hasAnyEngine(credentials)) {
+    return errorResponse({
+      status: 503,
+      code: ERROR_CODES.MISSING_KEY,
+      message:
+        'No speech-to-text engine is configured. Add a key on the settings page (/settings), or set DEEPGRAM_API_KEY and friends in .env.local.',
+      hint: 'Open /settings to paste a key, or add one to .env.local and restart the server.',
+    });
+  }
 
   const { getField, buffer, filename, contentType, audioUrl } = parsed;
 
@@ -435,6 +450,46 @@ async function resolveMediaLink(link, getField) {
     };
   }
 
+  // YouTube video links never go through the media downloader — they are
+  // served from the caption transcript instead (no audio, no STT credits).
+  if (isYouTubeUrl(link)) {
+    if (!serverConfig.youtube.enabled) {
+      return {
+        error: errorResponse({
+          status: 403,
+          code: ERROR_CODES.BAD_REQUEST,
+          message: 'YouTube links are turned off on this deployment. Upload the audio file instead.',
+        }),
+      };
+    }
+    try {
+      const language = normaliseLanguage(getField('language'));
+      const youtubeResult = await fetchYouTubeTranscript(link, {
+        language: language || undefined,
+        timeoutMs: serverConfig.youtube.timeoutMs,
+      });
+      return { getField, youtubeResult };
+    } catch (error) {
+      if (error instanceof YouTubeError) {
+        return {
+          error: errorResponse({
+            status: error.status,
+            code: error.code === 'TIMEOUT' ? ERROR_CODES.TIMEOUT : ERROR_CODES.BAD_REQUEST,
+            message: error.message,
+          }),
+        };
+      }
+      return {
+        error: errorResponse({
+          status: 502,
+          code: ERROR_CODES.BAD_REQUEST,
+          message: 'That YouTube link could not be read.',
+          detail: redact(String(error?.message || error)),
+        }),
+      };
+    }
+  }
+
   try {
     const media = await fetchRemoteMedia(link, {
       maxBytes: serverConfig.link.maxMb * 1024 * 1024,
@@ -693,6 +748,45 @@ function buildSuccessBody({
     // `detail` is intentionally dropped: it is for server logs, not the client.
     attempts: attempts.map(({ detail: _detail, ...rest }) => rest),
     warnings,
+  };
+}
+
+/**
+ * Success body for a YouTube caption transcript. Same shape as the STT path
+ * (so the studio renders it unchanged), plus YouTube metadata the UI uses
+ * for the source label and the captions notice.
+ */
+function buildYouTubeSuccessBody({ result, speakerMode = 'auto' }) {
+  const warnings = [];
+  if (result.captionKind === 'auto') {
+    warnings.push(
+      'These are YouTube auto-generated captions, not speech-to-text. Upload the audio file for higher accuracy on unscripted speech.',
+    );
+  }
+
+  return {
+    ok: true,
+    text: result.text,
+    engine: 'youtube',
+    model: result.model ?? null,
+    language: result.language ?? null,
+    confidence: result.confidence ?? null,
+    durationSeconds: result.duration ?? null,
+    audioSeconds: result.duration ? Math.round(result.duration) : null,
+    requestId: result.requestId ?? null,
+    elapsedMs: result.elapsedMs ?? null,
+    fallbackUsed: false,
+    words: result.words ?? [],
+    segments: result.segments ?? [],
+    speakerMode,
+    attempts: [{ engine: 'youtube', ok: true, model: result.model ?? null, elapsedMs: result.elapsedMs ?? null }],
+    warnings,
+    // YouTube metadata.
+    sourceType: 'youtube',
+    videoId: result.videoId ?? null,
+    videoTitle: result.videoTitle ?? null,
+    captionLanguage: result.captionLanguage ?? null,
+    captionKind: result.captionKind ?? null,
   };
 }
 
